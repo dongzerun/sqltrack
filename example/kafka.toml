@@ -1,0 +1,10 @@
+[global]
+basedir = "/tmp"
+
+[kafka]
+topic = "mysql.slow.ms"
+addrs = "g1-db-srv-00:9092,g1-db-srv-01:9092,g1-db-srv-02:9092"
+partition_nums = 3
+group = "null"
+offset_method = "Manual"
+checkpoint_filename = "/tmp/checkpoint"
