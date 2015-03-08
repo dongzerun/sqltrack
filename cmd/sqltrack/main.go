@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/dongzerun/sqltrack/kafka"
+	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/golang/protobuf/proto"
 	"log"
@@ -19,26 +19,46 @@ var (
 func main() {
 
 	flag.Parse()
-	globals := loadConfig(configPath)
+	// globals := loadConfig(configPath)
+	log.Println("start decode config file")
+	globals := input.LoadConfig(configPath)
 	log.Println(globals.KafkaConfig)
 	log.Println(globals.KafkaConfig.Addrs)
 
-	kh := kafka.NewKafkaHelper(globals.KafkaConfig)
-	go kh.StartPull()
+	// var is input.InputSource
+	// is = input.NewKafkaHelper(globals)
+	// 	cmd/sqltrack/main.go:30: too many arguments in call to input.Ins[globals.Base.Input]
+	// cmd/sqltrack/main.go:30: cannot use input.Ins[globals.Base.Input](globals) (type interface {}) as type input.InputSource in assignment:
+	//         interface {} does not implement input.InputSource (missing Clean method)
+	factory := input.Ins[globals.Base.Input]()
+	log.Println("input is: ", globals.Base.Input)
 
-	kh.Wg.Wrap(func() {
+	var is input.InputSource
+	var ok bool
+
+	if is, ok = factory.(input.InputSource); !ok {
+		log.Fatalln("input may not initiatial!!!")
+	}
+	// is := &input.KafkaHelper{}
+
+	// cmd/sqltrack/main.go:41: cannot use globals (type *input.GlobalConfig)
+	// as type input.GlobalConfig in argument to is.InitHelper
+	is.InitHelper(globals)
+	go is.StartPull()
+
+	go func() {
 		for {
 			select {
-			case data := <-kh.MsgKafka:
-				fmt.Println(data.Topic, data.Key, data.Offset, data.Partition)
+			case data := <-is.Consume():
+				fmt.Println(data.GetOffset())
 				msg := &message.Message{}
-				proto.Unmarshal(data.Value, msg)
+				proto.Unmarshal(data.GetValue(), msg)
 				fmt.Println(msg)
-			case <-kh.StopChan:
+			case <-is.Stop():
 				return
 			}
 		}
-	})
+	}()
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
@@ -49,7 +69,5 @@ func main() {
 		syscall.SIGTERM,
 		syscall.SIGQUIT)
 	<-sc
-	close(kh.StopChan)
-	kh.Wg.Wait()
-	kh.Clean()
+	is.Clean()
 }

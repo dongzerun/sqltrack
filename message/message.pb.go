@@ -20,7 +20,7 @@ import json "encoding/json"
 import math "math"
 
 // discarding unused import gogoproto "gogo.pb"
-import  code_google_com_p_gogoprotobuf_proto  "code.google.com/p/gogoprotobuf/proto"
+import code_google_com_p_gogoprotobuf_proto "code.google.com/p/gogoprotobuf/proto"
 import io "io"
 import math1 "math"
 
@@ -159,6 +159,26 @@ func (m *Header) GetHmac() []byte {
 	}
 	return nil
 }
+
+// uuid:"\3076\034\277\250\017Cj\243H\251\353\254Jlr"
+// timestamp:1425791439000000000
+// type:"mysql.slow-query"
+// logger:"Sync-1_5-SlowQuery"
+// severity:7
+// payload:"SELECT id, district_id, street_id, xiaoqu_id, avg_price_change, avg_price, record_time FROM house_sell_avg_price WHERE (city = 1200) AND (district_id =  '1') AND (step_type =  1) AND (record_time >= 1396281600) AND (record_time <=  1427817600);\n"
+// pid:0
+// hostname:"10.1.2.187"
+// fields:<name:"Rows_read" value_type:DOUBLE value_double:86274 >
+// fields:<name:"Last_errno" value_string:"0" >
+// fields:<name:"Bytes_sent" value_type:DOUBLE value_double:1699 >
+// fields:<name:"Rows_affected" value_type:DOUBLE value_double:0 >
+// fields:<name:"Lock_time" value_type:DOUBLE representation:"s" value_double:9.4e-05 >
+// fields:<name:"Rows_examined" value_type:DOUBLE value_double:86274 >
+// fields:<name:"Query_time" value_type:DOUBLE representation:"s" value_double:0.1292 >
+// fields:<name:"Rows_sent" value_type:DOUBLE value_double:23 >
+// fields:<name:"Thread_id" value_type:DOUBLE value_double:8.11838477e+08 >
+// fields:<name:"Schema" value_string:"xiaoqu" >
+// fields:<name:"Killed" value_string:"0" >
 
 type Field struct {
 	Name             *string          `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
@@ -349,8 +369,8 @@ func (m *Header) Unmarshal(data []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
-                return ErrWrongType
-            }
+				return ErrWrongType
+			}
 			var v uint32
 			for shift := uint(0); ; shift += 7 {
 				if index >= l {
