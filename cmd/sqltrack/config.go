@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+var cfgs map[string]toml.Primitive
+
 type GlobalConfig struct {
 	KafkaConfig *kafka.KafkaInputConfig
 }
