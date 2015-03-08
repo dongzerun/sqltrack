@@ -1,13 +1,9 @@
 package kafka
 
 import (
-	// "encoding/binary"
-	// "flag"
-	// "fmt"
 	"github.com/Shopify/sarama"
-	// "github.com/bbangert/toml"
+	"github.com/dongzerun/sqltrack/util"
 	"io"
-	// "io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -35,7 +31,8 @@ type KafkaHelper struct {
 	checkpointData []int64
 
 	MsgKafka chan *sarama.ConsumerMessage
-	stopChan chan bool
+	StopChan chan bool
+	Wg       util.WaitGroupWrapper
 
 	//配置
 	kconfig *KafkaInputConfig
@@ -54,7 +51,8 @@ type KafkaInputConfig struct {
 
 func NewKafkaInputConfig() *KafkaInputConfig {
 	return &KafkaInputConfig{
-		PartitionNums: 3,
+		// mostcase default 1 partition
+		PartitionNums: 1,
 		OffsetMethod:  "Newest",
 	}
 }
@@ -63,6 +61,7 @@ func NewKafkaHelper(cfg *KafkaInputConfig) *KafkaHelper {
 	kh := &KafkaHelper{
 		kconfig:  cfg,
 		MsgKafka: make(chan *sarama.ConsumerMessage, 1024),
+		StopChan: make(chan bool, 1),
 	}
 	var err error
 	kh.client, err = sarama.NewClient("myclient", strings.Split(kh.kconfig.Addrs, ","), kh.clientConfig)
@@ -129,6 +128,7 @@ func NewKafkaHelper(cfg *KafkaInputConfig) *KafkaHelper {
 func (kh *KafkaHelper) StartPull() {
 	log.Println("Start Pull data")
 	var i int32
+	kh.Wg.Add(int(kh.kconfig.PartitionNums))
 	for i = 0; i < kh.kconfig.PartitionNums; i++ {
 		go func(i int32) {
 			for {
@@ -138,26 +138,39 @@ func (kh *KafkaHelper) StartPull() {
 				case data := <-kh.consumerP[i].Messages():
 					kh.MsgKafka <- data
 					kh.setCheckpoint(i, data.Offset)
-				case <-kh.stopChan:
+				case <-kh.StopChan:
+					// kh.consumerP[i].Close()
 					return
 				}
 			}
 		}(i)
 	}
 
-	// 如果是手动指定offset,那么每1秒去持久化数据
-	if kh.kconfig.OffsetMethod == "Manual" {
-		go func() {
-			tk := time.NewTicker(time.Second * 1)
-			select {
-			case <-tk.C:
-				kh.writeCheckpoint()
-			case <-kh.stopChan:
-				return
-			}
-		}()
-	}
+	kh.Wg.Wrap(kh.persistOffset)
+}
 
-	// 通过close(kh.stopChan)来关闭所有goroutine
-	<-kh.stopChan
+// 持久化kafka offset数据 当前每秒写入文件
+// zookeeper是个选择？
+func (kh *KafkaHelper) persistOffset() {
+	tk := time.NewTicker(time.Second * 1)
+	for {
+		select {
+		case <-tk.C:
+			kh.writeCheckpoint()
+		case <-kh.StopChan:
+			goto exit
+		}
+	}
+exit:
+	tk.Stop()
+}
+
+func (kh *KafkaHelper) Clean() {
+	var i int32
+	for i = 0; i < kh.kconfig.PartitionNums; i++ {
+		kh.consumerP[i].Close()
+	}
+	kh.client.Close()
+	kh.checkpointFile.Sync()
+	kh.checkpointFile.Close()
 }

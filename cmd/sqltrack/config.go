@@ -1,54 +1,17 @@
 package main
 
 import (
-	// "encoding/binary"
-	"flag"
 	"fmt"
-	// "github.com/Shopify/sarama"
 	"github.com/bbangert/toml"
 	"github.com/dongzerun/sqltrack/kafka"
-	// "io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-	// "time"
 )
-
-var (
-	configPath = flag.String("config", "/tmp/kafka.toml", "config must be file")
-)
-
-// [kafkaInput]
-// topic = "mysql.slow.ms"
-// addrs = ["g1-db-srv-00:9092", "g1-db-srv-01:9092", "g1-db-srv-02:9092"]
-// encoder = "ProtobufEncoder"
-// partitioner = "Random"
-// offsetmethod = "Manual"
 
 type GlobalConfig struct {
 	KafkaConfig *kafka.KafkaInputConfig
-}
-
-var cfgs map[string]toml.Primitive
-
-func main() {
-
-	flag.Parse()
-	globals := loadConfig(configPath)
-	log.Println(globals.KafkaConfig)
-	log.Println(globals.KafkaConfig.Addrs)
-	// ConsumerWithSelect()
-
-	kh := kafka.NewKafkaHelper(globals.KafkaConfig)
-	go kh.StartPull()
-	for {
-		select {
-		case data := <-kh.MsgKafka:
-			fmt.Println(data.Topic, data.Key, data.Offset, data.Partition)
-		}
-	}
-
 }
 
 func loadConfig(configPath *string) *GlobalConfig {
