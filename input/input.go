@@ -22,15 +22,35 @@ type InputSource interface {
 	Stop() <-chan bool
 }
 
+//output source db es influxdb
+
+type OutputSource interface {
+	InitHelper(*GlobalConfig)
+	LoopProcess()
+	ReceiveMsg(interface{})
+	Clean()
+	Stop() <-chan bool
+}
+
 // type factory func() interface{}
 
 // var Ins = make(map[string]func() interface{})
 var Ins = make(map[string]func() InputSource)
 
-func Register(name string, f func() InputSource) {
+func RegisterIns(name string, f func() InputSource) {
 	if _, ok := Ins[name]; ok {
 		panic(fmt.Errorf("IntputSource %s is registered", name))
 	}
 
 	Ins[name] = f
+}
+
+var Ous = make(map[string]func() OutputSource)
+
+func RegisterOus(name string, f func() InputSource) {
+	if _, ok := Ous[name]; ok {
+		panic(fmt.Errorf("OutputSource %s is registered", name))
+	}
+
+	Ous[name] = f
 }

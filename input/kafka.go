@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	Register("kafka", func() InputSource { return &KafkaHelper{} })
+	RegisterIns("kafka", func() InputSource { return &KafkaHelper{} })
 }
 
 // &{0 0 <nil> <nil> <nil> <nil>
