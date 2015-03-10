@@ -47,7 +47,7 @@ func RegisterIns(name string, f func() InputSource) {
 
 var Ous = make(map[string]func() OutputSource)
 
-func RegisterOus(name string, f func() InputSource) {
+func RegisterOus(name string, f func() OutputSource) {
 	if _, ok := Ous[name]; ok {
 		panic(fmt.Errorf("OutputSource %s is registered", name))
 	}

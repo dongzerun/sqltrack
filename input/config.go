@@ -15,7 +15,9 @@ type GlobalConfig struct {
 
 type BaseConfig struct {
 	Input   string `toml:"input"`
+	Output  string `toml:"output"`
 	BaseDir string `toml:"basedir"`
+	Product string `toml:"product"`
 	CpuProf string `toml:"cpuprof"`
 	MemProf string `toml:"memprof"`
 }
@@ -69,7 +71,7 @@ func LoadConfig(configPath *string) *GlobalConfig {
 		log.Fatalln("global base toml must be set")
 	}
 	if err = toml.PrimitiveDecodeStrict(parsed_globals, base, empty_ignore); err != nil {
-		log.Fatalln("global base decode failed !!!")
+		log.Fatalln("global base decode failed: ", err)
 	}
 
 	globals.Base = base

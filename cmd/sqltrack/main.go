@@ -20,37 +20,30 @@ func main() {
 
 	flag.Parse()
 
-	log.Println("start decode config file")
 	globals := input.LoadConfig(configPath)
-	log.Println(globals.KafkaConfig)
-	log.Println(globals.KafkaConfig.Addrs)
 
-	factory := input.Ins[globals.Base.Input]()
-	log.Println("input is: ", globals.Base.Input)
+	isfactory := input.Ins[globals.Base.Input]()
 
 	var is input.InputSource
 	var ok bool
 
-	if is, ok = factory.(input.InputSource); !ok {
+	if is, ok = isfactory.(input.InputSource); !ok {
 		log.Fatalln("input may not initiatial!!!")
 	}
 
 	is.InitHelper(globals)
 	go is.StartPull()
 
-	go func() {
-		for {
-			select {
-			case data := <-is.Consume():
-				fmt.Println(data.GetOffset())
-				msg := &message.Message{}
-				proto.Unmarshal(data.GetValue(), msg)
-				fmt.Println(msg)
-			case <-is.Stop():
-				return
-			}
-		}
-	}()
+	opfactory := input.Ous[globals.Base.Output]()
+	var op input.OutputSource
+
+	if op, ok = opfactory.(input.OutputSource); !ok {
+		log.Fatalln("output may not initiatial!!!")
+	}
+
+	log.Println(op)
+
+	go process(is)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
@@ -62,4 +55,18 @@ func main() {
 		syscall.SIGQUIT)
 	<-sc
 	is.Clean()
+}
+
+func process(is input.InputSource) {
+	for {
+		select {
+		case data := <-is.Consume():
+			fmt.Println(data.GetOffset())
+			msg := &message.Message{}
+			proto.Unmarshal(data.GetValue(), msg)
+			fmt.Println(msg)
+		case <-is.Stop():
+			return
+		}
+	}
 }
