@@ -18,8 +18,11 @@ type BaseConfig struct {
 	Output  string `toml:"output"`
 	BaseDir string `toml:"basedir"`
 	Product string `toml:"product"`
+
+	//runtime
 	CpuProf string `toml:"cpuprof"`
 	MemProf string `toml:"memprof"`
+	MaxCpu  int    `toml:"maxcpu"`
 }
 
 var cfgs map[string]toml.Primitive

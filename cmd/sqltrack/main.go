@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 )
 
@@ -21,6 +22,8 @@ func main() {
 	flag.Parse()
 
 	globals := input.LoadConfig(configPath)
+
+	setRuntime(globals)
 
 	isfactory := input.Ins[globals.Base.Input]()
 
@@ -68,5 +71,11 @@ func process(is input.InputSource) {
 		case <-is.Stop():
 			return
 		}
+	}
+}
+
+func setRuntime(g *input.GlobalConfig) {
+	if g.Base.MaxCpu > 0 {
+		runtime.GOMAXPROCS(g.Base.MaxCpu)
 	}
 }
