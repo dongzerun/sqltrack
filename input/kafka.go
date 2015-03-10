@@ -140,6 +140,8 @@ func (kh *KafkaHelper) InitHelper(g *GlobalConfig) {
 		}
 		kh.consumerP[i] = p
 	}
+
+	go kh.StartPull()
 }
 
 func (kh *KafkaHelper) StartPull() {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
+	"github.com/dongzerun/sqltrack/tracker"
 	"github.com/golang/protobuf/proto"
 	"log"
 	"os"
@@ -35,18 +36,10 @@ func main() {
 	}
 
 	is.InitHelper(globals)
-	go is.StartPull()
 
-	opfactory := input.Ous[globals.Base.Output]()
-	var op input.OutputSource
-
-	if op, ok = opfactory.(input.OutputSource); !ok {
-		log.Fatalln("output may not initiatial!!!")
-	}
-
-	log.Println(op)
-
-	go process(is)
+	t := tracker.NewTracker()
+	t.Init(globals)
+	go process(is, t)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
@@ -60,14 +53,14 @@ func main() {
 	is.Clean()
 }
 
-func process(is input.InputSource) {
+func process(is input.InputSource, t *tracker.Tracker) {
 	for {
 		select {
 		case data := <-is.Consume():
 			fmt.Println(data.GetOffset())
 			msg := &message.Message{}
 			proto.Unmarshal(data.GetValue(), msg)
-			fmt.Println(msg)
+			t.Receive(msg)
 		case <-is.Stop():
 			return
 		}

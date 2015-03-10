@@ -23,6 +23,11 @@ type BaseConfig struct {
 	CpuProf string `toml:"cpuprof"`
 	MemProf string `toml:"memprof"`
 	MaxCpu  int    `toml:"maxcpu"`
+
+	//mysql
+	Muser  string `toml:"mysql_user"`
+	Mpwd   string `toml:"mysql_pwd"`
+	Maddrs string `toml:"mysql_addrs"`
 }
 
 var cfgs map[string]toml.Primitive
