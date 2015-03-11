@@ -14,7 +14,7 @@ package cache
 import (
 	"container/list"
 	"fmt"
-	"log"
+	// "log"
 	"sync"
 	"time"
 )
@@ -239,7 +239,7 @@ func (lru *LRUCache) addNew(key string, value Value) {
 	newEntry := &entry{key, value, int64(value.Size()), time.Now()}
 	element := lru.list.PushFront(newEntry)
 	lru.table[key] = element
-	log.Println("newEntry.size:", newEntry.size, " lru.size:", lru.size)
+	// log.Println("newEntry.size:", newEntry.size, " lru.size:", lru.size)
 	lru.size += newEntry.size
 	lru.checkCapacity()
 }

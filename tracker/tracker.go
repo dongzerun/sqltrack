@@ -6,6 +6,7 @@ import (
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/util"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -87,6 +88,7 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	t.g = g
 	if g.Base.CacheSize > 0 && g.Base.CacheSize < 1024 {
 		t.lruPool = cache.NewLRUCache(g.Base.CacheSize)
+		// t.lruPool = cache.NewLRUCache(512)
 	} else {
 		t.lruPool = cache.NewLRUCache(512)
 	}
@@ -132,7 +134,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	sql := NewSlowSql(t.g, msg)
 	//妆步判断，不用走mysql explain，直接打入store channel
 	if sql.UseIndex == false && sql.Table != "" {
-		t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
+		t.lruPool.Set(strconv.FormatUint(uint64(sql.ID), 10), sql.GenLruItem())
 		t.SetStatsDirect(1)
 		log.Println("sql direct sented: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 		return sql
@@ -152,7 +154,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 		}
 	}
 	t.explainSql(sql)
-	t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
+	t.lruPool.Set(strconv.FormatUint(uint64(sql.ID), 10), sql.GenLruItem())
 	log.Println("sql need explain: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	t.SetStatsNotInLru(1)
 	return sql

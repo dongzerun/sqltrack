@@ -1,7 +1,7 @@
 package util
 
 import (
-	"log"
+	// "log"
 	"os"
 	"strings"
 )
@@ -18,7 +18,7 @@ func fileExists(path string) bool {
 func SplitToSchemaOrTable(st string) (string, string) {
 	if st != "" {
 		tmp := strings.Split(st, ".")
-		log.Println("tmp string is:", tmp)
+		// log.Println("tmp string is:", tmp)
 		if len(tmp) == 1 {
 			return "", tmp[0]
 		} else if len(tmp) == 2 {

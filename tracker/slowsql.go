@@ -110,20 +110,20 @@ func (s *SlowSql) trySetSchemaAndTable() {
 	sql = reSpace.ReplaceAllString(sql, " ")    //将连续的空格变成一个
 	log.Println("old sql is: ", sql)
 	m := reSchemaTable1.FindStringSubmatch(sql)
-	if len(m) == 3 {
-		s.setSchemaAndTable(m[1])
+	if len(m) == 4 {
+		s.setSchemaAndTable(m[2])
 		return
 	}
 
 	m = reSchemaTable2.FindStringSubmatch(sql)
-	if len(m) == 3 {
-		s.setSchemaAndTable(m[1])
+	if len(m) == 4 {
+		s.setSchemaAndTable(m[2])
 		return
 	}
 
 	m = reSchemaTable3.FindStringSubmatch(sql)
-	if len(m) == 3 {
-		s.setSchemaAndTable(m[1])
+	if len(m) == 4 {
+		s.setSchemaAndTable(m[2])
 		return
 	}
 }
