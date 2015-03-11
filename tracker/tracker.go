@@ -81,6 +81,17 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	for i := 0; i < 10; i++ {
 		t.wg.Wrap(t.TransferLoop)
 	}
+	t.wg.Wrap(t.ToSaveStore())
+}
+
+func (t *Tracker) ToSaveStore() {
+	for {
+		select {
+		case <-t.toStore:
+		case <-t.quit:
+			return
+		}
+	}
 }
 
 func (t *Tracker) TransferLoop() {
@@ -90,7 +101,7 @@ func (t *Tracker) TransferLoop() {
 			// log.Println(msg.GetPayload(), msg.GetTimestamp(), msg.GetFields())
 			// t.toStore <- t.transfer(msg)
 			s := t.transfer(msg)
-			log.Println(s)
+			// log.Println(s)
 			if s == nil {
 				continue
 			}
@@ -122,7 +133,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 }
 
 func (t *Tracker) explainSql(sql *SlowSql) {
-	log.Println("explain sql: ", sql.PayLoad)
+	log.Println("explain sql: ", sql.ID, sql.PayLoad)
 }
 
 func (t *Tracker) Receive(msg *message.Message) {
