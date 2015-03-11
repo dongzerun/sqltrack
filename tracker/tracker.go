@@ -5,9 +5,9 @@ import (
 	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/util"
-	// "input"
 	"log"
 	"sync"
+	"time"
 )
 
 // uuid:"\307\305\365\361\234\235G\236\257\372c\005ti1;"
@@ -31,11 +31,19 @@ type TrackerStats struct {
 	// 处理计数
 	ProcessMessageCount    uint64
 	ProcessMessageFailures uint64
+
+	// LRU
+	ProcessMessageInLru    uint64
+	ProcessMessageNotInLru uint64
+
+	//direct sent
+	ProcessMessageDirect uint64
 }
 type Tracker struct {
 	g *input.GlobalConfig
 
 	m     sync.Mutex
+	mlru  sync.Mutex
 	stats *TrackerStats
 	// 从kafka处接收并未处理的
 	received chan *message.Message
@@ -65,7 +73,7 @@ type Tracker struct {
 
 func NewTracker() *Tracker {
 	return &Tracker{
-		stats:    &TrackerStats{0, 0},
+		stats:    &TrackerStats{0, 0, 0, 0, 0},
 		received: make(chan *message.Message, 30),
 		toStore:  make(chan *SlowSql, 60),
 		lruPool:  cache.NewLRUCache(1024),
@@ -81,7 +89,7 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	for i := 0; i < 10; i++ {
 		t.wg.Wrap(t.TransferLoop)
 	}
-	t.wg.Wrap(t.ToSaveStore())
+	t.wg.Wrap(t.ToSaveStore)
 }
 
 func (t *Tracker) ToSaveStore() {
@@ -115,6 +123,12 @@ func (t *Tracker) TransferLoop() {
 func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	//NewSlowSql只做预处理，不会去mysql 做 explain
 	sql := NewSlowSql(t.g, msg)
+	//妆步判断，不用走mysql explain，直接打入store channel
+	if sql.UseIndex == false && sql.Table != "" {
+		t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
+		t.SetStatsDirect(1)
+		return sql
+	}
 
 	if v, ok := t.lruPool.Get(string(sql.ID)); !ok {
 		log.Print("sql not in LruCache ")
@@ -123,12 +137,15 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 			if sql.ID == it.ID {
 				sql.UseIndex = it.UseIndex
 				sql.Table = it.Table
+				log.Println("sql in LruCache: ", sql.ID)
+				t.SetStatsInLru(1)
 				return sql
 			}
 		}
 	}
 	t.explainSql(sql)
 	t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
+	t.SetStatsNotInLru(1)
 	return sql
 }
 
@@ -143,7 +160,12 @@ func (t *Tracker) Receive(msg *message.Message) {
 func (t *Tracker) GetAndResetStats() TrackerStats {
 	t.m.Lock()
 	defer t.m.Unlock()
-	ts := TrackerStats{t.stats.ProcessMessageCount, t.stats.ProcessMessageFailures}
+	ts := TrackerStats{
+		t.stats.ProcessMessageCount,
+		t.stats.ProcessMessageFailures,
+		t.stats.ProcessMessageInLru,
+		t.stats.ProcessMessageNotInLru,
+		t.stats.ProcessMessageDirect}
 	t.stats.ProcessMessageCount = 0
 	t.stats.ProcessMessageFailures = 0
 	return ts
@@ -159,4 +181,38 @@ func (t *Tracker) SetStatsFailure(delta uint64) {
 	t.m.Lock()
 	defer t.m.Unlock()
 	t.stats.ProcessMessageFailures += delta
+}
+
+func (t *Tracker) SetStatsInLru(delta uint64) {
+	t.mlru.Lock()
+	defer t.mlru.Unlock()
+	t.stats.ProcessMessageInLru += delta
+}
+
+func (t *Tracker) SetStatsNotInLru(delta uint64) {
+	t.mlru.Lock()
+	defer t.mlru.Unlock()
+	t.stats.ProcessMessageNotInLru += delta
+}
+
+func (t *Tracker) SetStatsDirect(delta uint64) {
+	t.mlru.Lock()
+	defer t.mlru.Unlock()
+	t.stats.ProcessMessageDirect += delta
+}
+
+func (t *Tracker) StatsLoop() {
+	ticker := time.NewTicker(time.Second * 10)
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("inlru: ", t.stats.ProcessMessageInLru, "notinlru: ", t.stats.ProcessMessageNotInLru,
+				"direct: ", t.stats.ProcessMessageDirect)
+		case <-t.quit:
+			goto exit
+		}
+	}
+exit:
+	ticker.Stop()
+	return
 }
