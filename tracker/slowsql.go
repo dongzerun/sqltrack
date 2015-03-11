@@ -5,6 +5,7 @@ import (
 	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"hash/crc32"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -35,10 +36,10 @@ type SlowSql struct {
 	//完整sql，可能被truncate
 	PayLoad      string
 	Fields       []*message.Field
-	RowsRead     int64
-	BytesSent    int64
-	RowsAffected int64
-	RowsExamined int64
+	RowsRead     float64
+	BytesSent    float64
+	RowsAffected float64
+	RowsExamined float64
 	QueryTime    float64
 
 	//未使用索引就是全表扫
@@ -69,6 +70,7 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 	}
 	s.setIfUseIndex()
 	if err := s.decodeFields(); err != nil {
+		log.Println("decode err just reject this slowsql: ", err)
 		return nil
 	}
 
@@ -124,17 +126,35 @@ func (s *SlowSql) decodeFields() error {
 	for _, f := range s.Fields {
 		switch f.GetName() {
 		case "Rows_read":
-			s.RowsRead = f.GetValueInteger()[0]
+			if len(f.GetValueDouble()) == 1 {
+				s.RowsRead = f.GetValueDouble()[0]
+			}
+			return FIELDERR
 		case "Bytes_sent":
-			s.BytesSent = f.GetValueInteger()[0]
+			if len(f.GetValueDouble()) == 1 {
+				s.BytesSent = f.GetValueDouble()[0]
+			}
+			return FIELDERR
 		case "Rows_affected":
-			s.RowsAffected = f.GetValueInteger()[0]
+			if len(f.GetValueDouble()) == 1 {
+				s.RowsAffected = f.GetValueDouble()[0]
+			}
+			return FIELDERR
 		case "Rows_examined":
-			s.RowsExamined = f.GetValueInteger()[0]
+			if len(f.GetValueDouble()) == 1 {
+				s.RowsExamined = f.GetValueDouble()[0]
+			}
+			return FIELDERR
 		case "Query_time":
-			s.QueryTime = f.GetValueDouble()[0]
+			if len(f.GetValueDouble()) == 1 {
+				s.QueryTime = f.GetValueDouble()[0]
+			}
+			return FIELDERR
 		case "schema":
-			s.Schema = f.GetValueString()[0]
+			if len(f.GetValueString()) == 1 {
+				s.Schema = f.GetValueString()[0]
+			}
+			return FIELDERR
 		default:
 		}
 	}
