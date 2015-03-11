@@ -14,10 +14,13 @@ import (
 var (
 	ifUseWhere, _      = regexp.Compile(`(?i:where)`)
 	rmLineDelimiter, _ = regexp.Compile(" |\n|\r\n|\t+|`")
+	reBackQuote, _     = regexp.Compile("`")
+	reSpace, _         = regexp.Compile(`\s+`)
 	rmVars, _          = regexp.Compile(`\(([0-9]+,?)+\)|\(('[^',]+',?)+\)|[0-9]+|'[^',]*'`)
 	rmSelectFrom, _    = regexp.Compile(`(?i:select.*from)`)
-	reSchemaTable1, _  = regexp.Compile(`(?i:from(.*)(force|innerjoin|join|leftjoin|rightjoin))`)
-	reSchemaTable2, _  = regexp.Compile(`(?i:from(.*)(where|;))`)
+	reSchemaTable1, _  = regexp.Compile(`(?i:( from )(.*)( force | inner |join|leftjoin|rightjoin))`)
+	reSchemaTable2, _  = regexp.Compile(`(?i:( from )(.*)( where ))`)
+	reSchemaTable3, _  = regexp.Compile(`(?i:( from )(.*)(;))`)
 )
 
 var (
@@ -76,12 +79,13 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 		log.Println("generate unique id failed: ", err)
 		return nil
 	}
+	s.trySetSchemaAndTable()
+
 	s.setIfUseIndex()
 	if err := s.decodeFields(); err != nil {
 		log.Println("decode err just reject this slowsql: ", err)
 		return nil
 	}
-	s.trySetSchemaAndTable()
 
 	return s
 }
@@ -89,7 +93,7 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 //判断是否走索引，在slowsql这一层面简单的匹配是否有where条件
 func (s *SlowSql) setIfUseIndex() {
 	if use := ifUseWhere.MatchString(s.PayLoad); !use {
-		log.Println("ifusewhere false: ", s.PayLoad)
+		log.Println("ifusewhere false: ", s.ID, s.Table, s.PayLoad)
 		s.UseIndex = false
 	}
 }
@@ -97,13 +101,27 @@ func (s *SlowSql) setIfUseIndex() {
 func (s *SlowSql) trySetSchemaAndTable() {
 	//if match, then m[0],m[1] or m[2]
 	// m[1] is schema.table or table
-	m := reSchemaTable1.FindStringSubmatch(s.PayLoad)
+	// 2015/03/11 21:56:24 sql is:  SELECT distinct from_puid, create_at FROM vehicle_offer WHERE from_status = 1 and to_puid = 1415523035 ORDER BY create_at desc LIMIT 0,10;
+	// 2015/03/11 21:56:24 0  is  from_puid, create_at FROM vehicle_offer WHERE from_status = 1 and to_puid = 1415523035 ORDER BY create_at desc LIMIT 0,10;
+	// 2015/03/11 21:56:24 1  is  _puid, create_at FROM vehicle_offer WHERE from_status = 1 and to_puid = 1415523035 ORDER BY create_at desc LIMIT 0,10
+	// 2015/03/11 21:56:24 2  is  ;
+	sql := strings.ToLower(s.PayLoad)           //先变小写
+	sql = reBackQuote.ReplaceAllString(sql, "") //去掉所有\n \t \r\n分隔符
+	sql = reSpace.ReplaceAllString(sql, " ")    //将连续的空格变成一个
+	log.Println("old sql is: ", sql)
+	m := reSchemaTable1.FindStringSubmatch(sql)
 	if len(m) == 3 {
 		s.setSchemaAndTable(m[1])
 		return
 	}
 
-	m = reSchemaTable2.FindStringSubmatch(s.PayLoad)
+	m = reSchemaTable2.FindStringSubmatch(sql)
+	if len(m) == 3 {
+		s.setSchemaAndTable(m[1])
+		return
+	}
+
+	m = reSchemaTable3.FindStringSubmatch(sql)
 	if len(m) == 3 {
 		s.setSchemaAndTable(m[1])
 		return
