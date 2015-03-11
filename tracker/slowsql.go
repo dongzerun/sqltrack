@@ -59,6 +59,10 @@ type LruItem struct {
 	Table    string
 }
 
+func (it *LruItem) Size() int {
+	return 1
+}
+
 func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 	s := &SlowSql{
 		PayLoad:      msg.GetPayload(),

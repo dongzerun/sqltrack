@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"github.com/dongzerun/sqltrack/cache"
 	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/util"
@@ -42,6 +43,8 @@ type Tracker struct {
 	toStore chan *SlowSql
 	op      *input.OutputSource
 
+	lruPool *cache.LRUCache
+
 	// mysql addr to explain slow sql
 	muser  string
 	mpwd   string
@@ -65,6 +68,7 @@ func NewTracker() *Tracker {
 		stats:    &TrackerStats{0, 0},
 		received: make(chan *message.Message, 30),
 		toStore:  make(chan *SlowSql, 60),
+		lruPool:  cache.NewLRUCache(1024),
 	}
 }
 
@@ -98,7 +102,27 @@ func (t *Tracker) TransferLoop() {
 }
 
 func (t *Tracker) transfer(msg *message.Message) *SlowSql {
-	return NewSlowSql(t.g, msg)
+	//NewSlowSql只做预处理，不会去mysql 做 explain
+	sql := NewSlowSql(t.g, msg)
+
+	if v, ok := t.lruPool.Get(string(sql.ID)); !ok {
+		log.Print("sql not in LruCache ")
+	} else {
+		if it, ok := v.(*LruItem); ok {
+			if sql.ID == it.ID {
+				sql.UseIndex = it.UseIndex
+				sql.Table = it.Table
+				return sql
+			}
+		}
+	}
+	t.explainSql(sql)
+	t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
+	return sql
+}
+
+func (t *Tracker) explainSql(sql *SlowSql) {
+	log.Println("explain sql: ", sql.PayLoad)
 }
 
 func (t *Tracker) Receive(msg *message.Message) {
