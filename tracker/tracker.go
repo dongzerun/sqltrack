@@ -140,13 +140,13 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 		return sql
 	}
 
-	if v, ok := t.lruPool.Get(string(sql.ID)); !ok {
+	if v, ok := t.lruPool.Get(strconv.FormatUint(uint64(sql.ID), 10)); !ok {
 		log.Println("sql not in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	} else {
 		if it, ok := v.(*LruItem); ok {
 			if sql.ID == it.ID {
 				sql.UseIndex = it.UseIndex
-				sql.Table = it.Table
+				// sql.Table = it.Table
 				log.Println("sql in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 				t.SetStatsInLru(1)
 				return sql
