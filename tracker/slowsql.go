@@ -81,6 +81,7 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 		log.Println("decode err just reject this slowsql: ", err)
 		return nil
 	}
+	s.trySetSchemaAndTable()
 
 	return s
 }
@@ -88,6 +89,7 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 //判断是否走索引，在slowsql这一层面简单的匹配是否有where条件
 func (s *SlowSql) setIfUseIndex() {
 	if use := ifUseWhere.MatchString(s.PayLoad); !use {
+		log.Println("ifusewhere false: ", s.PayLoad)
 		s.UseIndex = false
 	}
 }

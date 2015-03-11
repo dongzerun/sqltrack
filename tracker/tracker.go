@@ -85,10 +85,10 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
 	t.g = g
-	if g.Base.CacheSize > 1024 && g.Base.CacheSize < 4096 {
+	if g.Base.CacheSize > 0 && g.Base.CacheSize < 1024 {
 		t.lruPool = cache.NewLRUCache(g.Base.CacheSize)
 	} else {
-		t.lruPool = cache.NewLRUCache(1024)
+		t.lruPool = cache.NewLRUCache(512)
 	}
 
 	//开启多个goroutine同时消费数据
@@ -134,18 +134,18 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	if sql.UseIndex == false && sql.Table != "" {
 		t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
 		t.SetStatsDirect(1)
-		log.Println("sql direct sented: ", sql.ID, sql.PayLoad)
+		log.Println("sql direct sented: ", sql.ID, sql.UseIndex, sql.Table, sql.PayLoad, sql.UseIndex)
 		return sql
 	}
 
 	if v, ok := t.lruPool.Get(string(sql.ID)); !ok {
-		log.Print("sql not in LruCache: ", sql.ID, sql.PayLoad)
+		log.Println("sql not in LruCache: ", sql.ID, sql.PayLoad, sql.UseIndex)
 	} else {
 		if it, ok := v.(*LruItem); ok {
 			if sql.ID == it.ID {
 				sql.UseIndex = it.UseIndex
 				sql.Table = it.Table
-				log.Println("sql in LruCache: ", sql.ID)
+				log.Println("sql in LruCache: ", sql.ID, sql.PayLoad, sql.UseIndex)
 				t.SetStatsInLru(1)
 				return sql
 			}
@@ -153,6 +153,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	}
 	t.explainSql(sql)
 	t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
+	log.Println("sql need explain: ", sql.ID, sql.UseIndex, sql.Table, sql.PayLoad, sql.UseIndex)
 	t.SetStatsNotInLru(1)
 	return sql
 }
@@ -215,7 +216,7 @@ func (t *Tracker) StatsLoop() {
 		select {
 		case <-ticker.C:
 			log.Println("inlru: ", t.stats.ProcessMessageInLru, "notinlru: ", t.stats.ProcessMessageNotInLru,
-				"direct: ", t.stats.ProcessMessageDirect)
+				"direct: ", t.stats.ProcessMessageDirect, "cachsize:", t.lruPool.Size())
 		case <-t.quit:
 			goto exit
 		}
