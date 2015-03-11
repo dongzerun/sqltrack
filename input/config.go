@@ -28,6 +28,9 @@ type BaseConfig struct {
 	Muser  string `toml:"mysql_user"`
 	Mpwd   string `toml:"mysql_pwd"`
 	Maddrs string `toml:"mysql_addrs"`
+
+	//tracker
+	CacheSize int64 `toml:"cache_size"`
 }
 
 var cfgs map[string]toml.Primitive

@@ -76,7 +76,7 @@ func NewTracker() *Tracker {
 		stats:    &TrackerStats{0, 0, 0, 0, 0},
 		received: make(chan *message.Message, 30),
 		toStore:  make(chan *SlowSql, 60),
-		lruPool:  cache.NewLRUCache(1024),
+		// lruPool:  cache.NewLRUCache(1024),
 	}
 }
 
@@ -85,11 +85,18 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
 	t.g = g
+	if g.Base.CacheSize > 1024 && g.Base.CacheSize < 4096 {
+		t.lruPool = cache.NewLRUCache(g.Base.CacheSize)
+	} else {
+		t.lruPool = cache.NewLRUCache(1024)
+	}
+
 	//开启多个goroutine同时消费数据
 	for i := 0; i < 10; i++ {
 		t.wg.Wrap(t.TransferLoop)
 	}
 	t.wg.Wrap(t.ToSaveStore)
+	t.wg.Wrap(t.StatsLoop)
 }
 
 func (t *Tracker) ToSaveStore() {
