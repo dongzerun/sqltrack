@@ -134,11 +134,12 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	if sql.UseIndex == false && sql.Table != "" {
 		t.lruPool.SetIfAbsent(string(sql.ID), sql.GenLruItem())
 		t.SetStatsDirect(1)
+		log.Println("sql direct sented: ", sql.ID, sql.PayLoad)
 		return sql
 	}
 
 	if v, ok := t.lruPool.Get(string(sql.ID)); !ok {
-		log.Print("sql not in LruCache ")
+		log.Print("sql not in LruCache: ", sql.ID, sql.PayLoad)
 	} else {
 		if it, ok := v.(*LruItem); ok {
 			if sql.ID == it.ID {
@@ -157,7 +158,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 }
 
 func (t *Tracker) explainSql(sql *SlowSql) {
-	log.Println("explain sql: ", sql.ID, sql.PayLoad)
+	// log.Println("explain sql: ", sql.ID, sql.PayLoad)
 }
 
 func (t *Tracker) Receive(msg *message.Message) {
