@@ -26,36 +26,6 @@ import (
 // fields:<name:"Schema" value_string:"fw" >
 // fields:<name:"Killed" value_string:"0" >
 
-type SlowSql struct {
-	//抽像后的sql ID
-	// crc32算法加密后的
-	ID           int32
-	ProductName  string
-	FromHostname string
-	Timestamp    int64
-
-	//库名，可能为空
-	Schema string
-	Table  []string
-	//完整sql，可能被truncate
-	PayLoad      string
-	RowsRead     int64
-	BytesSent    int64
-	RowsAffected int64
-	RowsExamined int64
-	QueryTime    float64
-
-	//未使用索引就是全表扫
-	UseIndex bool
-}
-
-type LruItem struct {
-	ID       int32
-	UseIndex bool
-	Schema   string
-	Table    []string
-}
-
 type TrackerStats struct {
 	// 处理计数
 	ProcessMessageCount    uint64
@@ -103,18 +73,26 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
 	t.g = g
-	t.wg.Wrap(t.Test)
+	t.wg.Wrap(t.TransferLoop)
 }
 
-func (t *Tracker) Test() {
+func (t *Tracker) TransferLoop() {
 	for {
 		select {
 		case msg := <-t.received:
-			log.Println(msg)
+			// log.Println(msg.GetPayload(), msg.GetTimestamp(), msg.GetFields())
+			// t.toStore <- t.transfer(msg)
+			s := t.transfer(msg)
+			log.Println(s)
+			t.toStore <- s
 		case <-t.quit:
 			return
 		}
 	}
+}
+
+func (t *Tracker) transfer(msg *message.Message) *SlowSql {
+	return NewSlowSql(t.g, msg)
 }
 
 func (t *Tracker) Receive(msg *message.Message) {

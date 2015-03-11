@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	// "fmt"
 	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/tracker"
@@ -57,7 +57,7 @@ func process(is input.InputSource, t *tracker.Tracker) {
 	for {
 		select {
 		case data := <-is.Consume():
-			fmt.Println(data.GetOffset())
+			// fmt.Println(data.GetOffset())
 			msg := &message.Message{}
 			proto.Unmarshal(data.GetValue(), msg)
 			t.Receive(msg)
