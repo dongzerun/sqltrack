@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
+	"github.com/dongzerun/sqltrack/util"
 	"hash/crc32"
 	"log"
 	"regexp"
@@ -15,6 +16,8 @@ var (
 	rmLineDelimiter, _ = regexp.Compile(" |\n|\r\n|\t+|`")
 	rmVars, _          = regexp.Compile(`\(([0-9]+,?)+\)|\(('[^',]+',?)+\)|[0-9]+|'[^',]*'`)
 	rmSelectFrom, _    = regexp.Compile(`(?i:select.*from)`)
+	reSchemaTable1, _  = regexp.Compile(`(?i:from(.*)(force|innerjoin|join|leftjoin|rightjoin))`)
+	reSchemaTable2, _  = regexp.Compile(`(?i:from(.*)(where|;))`)
 )
 
 var (
@@ -32,7 +35,7 @@ type SlowSql struct {
 
 	//库名，可能为空
 	Schema string
-	Table  []string
+	Table  string
 	//完整sql，可能被truncate
 	PayLoad      string
 	Fields       []*message.Field
@@ -53,7 +56,7 @@ type LruItem struct {
 	ID       uint32
 	UseIndex bool
 	Schema   string
-	Table    []string
+	Table    string
 }
 
 func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
@@ -66,6 +69,7 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 	}
 
 	if err := s.genID(); err != nil {
+		log.Println("generate unique id failed: ", err)
 		return nil
 	}
 	s.setIfUseIndex()
@@ -82,6 +86,31 @@ func (s *SlowSql) setIfUseIndex() {
 	if use := ifUseWhere.MatchString(s.PayLoad); !use {
 		s.UseIndex = false
 	}
+}
+
+func (s *SlowSql) trySetSchemaAndTable() {
+	//if match, then m[0],m[1] or m[2]
+	// m[1] is schema.table or table
+	m := reSchemaTable1.FindStringSubmatch(s.PayLoad)
+	if len(m) == 3 {
+		s.setSchemaAndTable(m[1])
+		return
+	}
+
+	m = reSchemaTable2.FindStringSubmatch(s.PayLoad)
+	if len(m) == 3 {
+		s.setSchemaAndTable(m[1])
+		return
+	}
+}
+
+func (s *SlowSql) setSchemaAndTable(m string) {
+	//没有schema就用 message的，table为空是可以的
+	schema, table := util.SplitToSchemaOrTable(m)
+	if schema != "" {
+		s.Schema = schema
+	}
+	s.Table = table
 }
 
 func (s *SlowSql) IfUseIndex() bool {
@@ -128,31 +157,37 @@ func (s *SlowSql) decodeFields() error {
 		case "Rows_read":
 			if len(f.GetValueDouble()) == 1 {
 				s.RowsRead = f.GetValueDouble()[0]
+				continue
 			}
 			return FIELDERR
 		case "Bytes_sent":
 			if len(f.GetValueDouble()) == 1 {
 				s.BytesSent = f.GetValueDouble()[0]
+				continue
 			}
 			return FIELDERR
 		case "Rows_affected":
 			if len(f.GetValueDouble()) == 1 {
 				s.RowsAffected = f.GetValueDouble()[0]
+				continue
 			}
 			return FIELDERR
 		case "Rows_examined":
 			if len(f.GetValueDouble()) == 1 {
 				s.RowsExamined = f.GetValueDouble()[0]
+				continue
 			}
 			return FIELDERR
 		case "Query_time":
 			if len(f.GetValueDouble()) == 1 {
 				s.QueryTime = f.GetValueDouble()[0]
+				continue
 			}
 			return FIELDERR
 		case "schema":
 			if len(f.GetValueString()) == 1 {
 				s.Schema = f.GetValueString()[0]
+				continue
 			}
 			return FIELDERR
 		default:

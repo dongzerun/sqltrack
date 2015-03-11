@@ -73,7 +73,10 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
 	t.g = g
-	t.wg.Wrap(t.TransferLoop)
+	//开启多个goroutine同时消费数据
+	for i := 0; i < 10; i++ {
+		t.wg.Wrap(t.TransferLoop)
+	}
 }
 
 func (t *Tracker) TransferLoop() {
@@ -84,6 +87,9 @@ func (t *Tracker) TransferLoop() {
 			// t.toStore <- t.transfer(msg)
 			s := t.transfer(msg)
 			log.Println(s)
+			if s == nil {
+				continue
+			}
 			t.toStore <- s
 		case <-t.quit:
 			return
