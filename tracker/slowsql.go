@@ -48,6 +48,9 @@ type SlowSql struct {
 	RowsExamined float64
 	QueryTime    float64
 
+	//explain
+	Explains []*SqlExplain
+
 	//未使用索引就是全表扫
 	UseIndex bool
 }
@@ -60,6 +63,8 @@ type LruItem struct {
 	UseIndex bool
 	Schema   string
 	Table    string
+
+	Explains []*SqlExplain
 }
 
 func (it *LruItem) Size() int {
@@ -73,6 +78,7 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 		ProductName:  g.Base.Product,
 		Fields:       msg.Fields,
 		UseIndex:     true,
+		Explains:     make([]*SqlExplain, 0),
 	}
 
 	if err := s.genID(); err != nil {

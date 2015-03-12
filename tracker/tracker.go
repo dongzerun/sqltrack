@@ -59,6 +59,10 @@ type Tracker struct {
 	mpwd   string
 	maddrs string
 
+	// explainhelper 这个不用接口
+	// storehelper 这个需要接口满足插件是开发
+	eh *ExplainHelper
+
 	wg   util.WaitGroupWrapper
 	quit chan bool
 }
@@ -86,6 +90,7 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
 	t.g = g
+	t.eh = NewExplainHelper(t.muser, t.mpwd, t.maddrs)
 	if g.Base.CacheSize > 0 && g.Base.CacheSize <= 1024 {
 		t.lruPool = cache.NewLRUCache(g.Base.CacheSize)
 		// t.lruPool = cache.NewLRUCache(512)
@@ -112,7 +117,7 @@ func (t *Tracker) ToSaveStore() {
 }
 
 func (t *Tracker) TransferLoop() {
-	for {
+	for i := 0; i < 30; i++ {
 		select {
 		case msg := <-t.received:
 			// log.Println(msg.GetPayload(), msg.GetTimestamp(), msg.GetFields())
@@ -133,19 +138,21 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	//NewSlowSql只做预处理，不会去mysql 做 explain
 	sql := NewSlowSql(t.g, msg)
 	//妆步判断，不用走mysql explain，直接打入store channel
+	key := strconv.FormatUint(uint64(sql.ID), 10)
 	if sql.UseIndex == false && sql.Table != "" {
-		t.lruPool.Set(strconv.FormatUint(uint64(sql.ID), 10), sql.GenLruItem())
+		t.lruPool.SetIfAbsent(key, sql.GenLruItem())
 		t.IcrStatsDirect(1)
 		// log.Println("sql direct sented: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 		return sql
 	}
 
-	if v, ok := t.lruPool.Get(strconv.FormatUint(uint64(sql.ID), 10)); !ok {
+	if v, ok := t.lruPool.Get(key); !ok {
 		// log.Println("sql not in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	} else {
 		if it, ok := v.(*LruItem); ok {
 			if sql.ID == it.ID {
 				sql.UseIndex = it.UseIndex
+				sql.Explains = it.Explains
 				// sql.Table = it.Table
 				// log.Println("sql in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 				t.IcrStatsInLru(1)
@@ -154,7 +161,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 		}
 	}
 	t.explainSql(sql)
-	t.lruPool.Set(strconv.FormatUint(uint64(sql.ID), 10), sql.GenLruItem())
+	t.lruPool.SetIfAbsent(key, sql.GenLruItem())
 	// log.Println("sql need explain: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	t.IcrStatsNotInLru(1)
 	return sql
@@ -162,6 +169,13 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 
 func (t *Tracker) explainSql(sql *SlowSql) {
 	// log.Println("explain sql: ", sql.ID, sql.PayLoad)
+	ses := t.eh.Explain(sql)
+	sql.Explains = ses
+	for i, _ := range ses {
+		if ses[i].Key == "NULL" || ses[i].ExplainType == "ALL" {
+			sql.UseIndex = false
+		}
+	}
 }
 
 func (t *Tracker) Receive(msg *message.Message) {
