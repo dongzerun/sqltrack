@@ -86,7 +86,7 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
 	t.g = g
-	if g.Base.CacheSize > 0 && g.Base.CacheSize < 1024 {
+	if g.Base.CacheSize > 0 && g.Base.CacheSize <= 1024 {
 		t.lruPool = cache.NewLRUCache(g.Base.CacheSize)
 		// t.lruPool = cache.NewLRUCache(512)
 	} else {
@@ -135,28 +135,28 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	//妆步判断，不用走mysql explain，直接打入store channel
 	if sql.UseIndex == false && sql.Table != "" {
 		t.lruPool.Set(strconv.FormatUint(uint64(sql.ID), 10), sql.GenLruItem())
-		t.SetStatsDirect(1)
-		log.Println("sql direct sented: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+		t.IcrStatsDirect(1)
+		// log.Println("sql direct sented: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 		return sql
 	}
 
 	if v, ok := t.lruPool.Get(strconv.FormatUint(uint64(sql.ID), 10)); !ok {
-		log.Println("sql not in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+		// log.Println("sql not in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	} else {
 		if it, ok := v.(*LruItem); ok {
 			if sql.ID == it.ID {
 				sql.UseIndex = it.UseIndex
 				// sql.Table = it.Table
-				log.Println("sql in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
-				t.SetStatsInLru(1)
+				// log.Println("sql in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+				t.IcrStatsInLru(1)
 				return sql
 			}
 		}
 	}
 	t.explainSql(sql)
 	t.lruPool.Set(strconv.FormatUint(uint64(sql.ID), 10), sql.GenLruItem())
-	log.Println("sql need explain: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
-	t.SetStatsNotInLru(1)
+	// log.Println("sql need explain: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+	t.IcrStatsNotInLru(1)
 	return sql
 }
 
@@ -182,43 +182,52 @@ func (t *Tracker) GetAndResetStats() TrackerStats {
 	return ts
 }
 
-func (t *Tracker) SetStatsSuccess(delta uint64) {
+func (t *Tracker) IcrStatsSuccess(delta uint64) {
 	t.m.Lock()
 	defer t.m.Unlock()
 	t.stats.ProcessMessageCount += delta
 }
 
-func (t *Tracker) SetStatsFailure(delta uint64) {
+func (t *Tracker) IcrStatsFailure(delta uint64) {
 	t.m.Lock()
 	defer t.m.Unlock()
 	t.stats.ProcessMessageFailures += delta
 }
 
-func (t *Tracker) SetStatsInLru(delta uint64) {
+func (t *Tracker) IcrStatsInLru(delta uint64) {
 	t.mlru.Lock()
 	defer t.mlru.Unlock()
 	t.stats.ProcessMessageInLru += delta
 }
 
-func (t *Tracker) SetStatsNotInLru(delta uint64) {
+func (t *Tracker) IcrStatsNotInLru(delta uint64) {
 	t.mlru.Lock()
 	defer t.mlru.Unlock()
 	t.stats.ProcessMessageNotInLru += delta
 }
 
-func (t *Tracker) SetStatsDirect(delta uint64) {
+func (t *Tracker) IcrStatsDirect(delta uint64) {
 	t.mlru.Lock()
 	defer t.mlru.Unlock()
 	t.stats.ProcessMessageDirect += delta
 }
 
+func (t *Tracker) IcrStatsResetLru() {
+	t.mlru.Lock()
+	defer t.mlru.Unlock()
+	t.stats.ProcessMessageInLru = 0
+	t.stats.ProcessMessageNotInLru = 0
+	t.stats.ProcessMessageDirect = 0
+}
+
 func (t *Tracker) StatsLoop() {
-	ticker := time.NewTicker(time.Second * 10)
+	ticker := time.NewTicker(time.Second * 60)
 	for {
 		select {
 		case <-ticker.C:
 			log.Println("inlru: ", t.stats.ProcessMessageInLru, "notinlru: ", t.stats.ProcessMessageNotInLru,
 				"direct: ", t.stats.ProcessMessageDirect, "cachsize:", t.lruPool.StatsJSON())
+			t.IcrStatsResetLru()
 		case <-t.quit:
 			goto exit
 		}
