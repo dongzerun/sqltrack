@@ -123,6 +123,7 @@ func (t *Tracker) TransferLoop() {
 			// log.Println(msg.GetPayload(), msg.GetTimestamp(), msg.GetFields())
 			// t.toStore <- t.transfer(msg)
 			s := t.transfer(msg)
+			log.Println(msg.GetFields(), msg.GetPayload())
 			// log.Println(s)
 			if s == nil {
 				continue
@@ -170,14 +171,14 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 
 func (t *Tracker) explainSql(sql *SlowSql) {
 	// log.Println("explain sql: ", sql.ID, sql.PayLoad)
-	// ses := t.eh.Explain(sql)
-	// sql.Explains = ses
+	ses := t.eh.Explain(sql)
+	sql.Explains = ses
 	// log.Println(sql.PayLoad, "ses is:", ses)
-	// for i, _ := range ses {
-	// if ses[i].Key == "NULL" || ses[i].ExplainType == "ALL" {
-	// sql.UseIndex = false
-	// }
-	// }
+	for i, _ := range ses {
+		if ses[i].Key == "NULL" || ses[i].ExplainType == "ALL" {
+			sql.UseIndex = false
+		}
+	}
 }
 
 func (t *Tracker) Receive(msg *message.Message) {

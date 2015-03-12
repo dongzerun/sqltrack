@@ -99,7 +99,7 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 //判断是否走索引，在slowsql这一层面简单的匹配是否有where条件
 func (s *SlowSql) setIfUseIndex() {
 	if use := ifUseWhere.MatchString(s.PayLoad); !use {
-		log.Println("ifusewhere false: ", s.ID, s.Table, s.PayLoad)
+		// log.Println("ifusewhere false: ", s.ID, s.Table, s.PayLoad)
 		s.UseIndex = false
 	}
 }
@@ -114,7 +114,7 @@ func (s *SlowSql) trySetSchemaAndTable() {
 	sql := strings.ToLower(s.PayLoad)           //先变小写
 	sql = reBackQuote.ReplaceAllString(sql, "") //去掉所有\n \t \r\n分隔符
 	sql = reSpace.ReplaceAllString(sql, " ")    //将连续的空格变成一个
-	log.Println("old sql is: ", sql)
+	// log.Println("old sql is: ", sql)
 	m := reSchemaTable1.FindStringSubmatch(sql)
 	if len(m) == 4 {
 		s.setSchemaAndTable(m[2])
@@ -214,7 +214,7 @@ func (s *SlowSql) decodeFields() error {
 				continue
 			}
 			return FIELDERR
-		case "schema":
+		case "Schema":
 			if len(f.GetValueString()) == 1 {
 				s.Schema = f.GetValueString()[0]
 				continue
