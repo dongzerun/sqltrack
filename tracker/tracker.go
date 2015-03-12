@@ -137,6 +137,7 @@ func (t *Tracker) TransferLoop() {
 func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	//NewSlowSql只做预处理，不会去mysql 做 explain
 	sql := NewSlowSql(t.g, msg)
+	log.Println(sql.Schema, sql.Table, sql.PayLoad)
 	//妆步判断，不用走mysql explain，直接打入store channel
 	key := strconv.FormatUint(uint64(sql.ID), 10)
 	if sql.UseIndex == false && sql.Table != "" {
@@ -147,7 +148,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	}
 
 	if v, ok := t.lruPool.Get(key); !ok {
-		// log.Println("sql not in LruCache: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+		log.Println("sql not in LruCache: ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	} else {
 		if it, ok := v.(*LruItem); ok {
 			if sql.ID == it.ID {
@@ -169,13 +170,14 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 
 func (t *Tracker) explainSql(sql *SlowSql) {
 	// log.Println("explain sql: ", sql.ID, sql.PayLoad)
-	ses := t.eh.Explain(sql)
-	sql.Explains = ses
-	for i, _ := range ses {
-		if ses[i].Key == "NULL" || ses[i].ExplainType == "ALL" {
-			sql.UseIndex = false
-		}
-	}
+	// ses := t.eh.Explain(sql)
+	// sql.Explains = ses
+	// log.Println(sql.PayLoad, "ses is:", ses)
+	// for i, _ := range ses {
+	// if ses[i].Key == "NULL" || ses[i].ExplainType == "ALL" {
+	// sql.UseIndex = false
+	// }
+	// }
 }
 
 func (t *Tracker) Receive(msg *message.Message) {
