@@ -2,7 +2,6 @@ package tracker
 
 import (
 	"github.com/dongzerun/sqltrack/cache"
-	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/util"
 	"log"
@@ -41,7 +40,7 @@ type TrackerStats struct {
 	ProcessMessageDirect uint64
 }
 type Tracker struct {
-	g *input.GlobalConfig
+	g *GlobalConfig
 
 	m     sync.Mutex
 	mlru  sync.Mutex
@@ -50,7 +49,7 @@ type Tracker struct {
 	received chan *message.Message
 	// 效率优化，可以多开goroutine处理sql并入channel toStore
 	toStore chan *SlowSql
-	op      input.OutputSource
+	op      OutputSource
 
 	lruPool *cache.LRUCache
 
@@ -67,15 +66,6 @@ type Tracker struct {
 	quit chan bool
 }
 
-// opfactory := input.Ous[globals.Base.Output]()
-// var op input.OutputSource
-
-// if op, ok = opfactory.(input.OutputSource); !ok {
-// 	log.Fatalln("output may not initiatial!!!")
-// }
-
-// log.Println(op)
-
 func NewTracker() *Tracker {
 	return &Tracker{
 		stats:    &TrackerStats{0, 0, 0, 0, 0},
@@ -85,7 +75,7 @@ func NewTracker() *Tracker {
 	}
 }
 
-func (t *Tracker) Init(g *input.GlobalConfig) {
+func (t *Tracker) Init(g *GlobalConfig) {
 	t.muser = g.Base.Muser
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
@@ -99,11 +89,11 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 	}
 
 	var (
-		op input.OutputSource
+		op OutputSource
 		ok bool
 	)
-	opfactory := input.Ous[g.Base.Output]()
-	if op, ok = opfactory.(input.OutputSource); !ok {
+	opfactory := Ous[g.Base.Output]()
+	if op, ok = opfactory.(OutputSource); !ok {
 		log.Fatalln("output source may not initaitial!!!")
 	}
 

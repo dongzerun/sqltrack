@@ -2,7 +2,6 @@ package tracker
 
 import (
 	"errors"
-	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/util"
 	"hash/crc32"
@@ -71,7 +70,7 @@ func (it *LruItem) Size() int {
 	return 1
 }
 
-func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
+func NewSlowSql(g *GlobalConfig, msg *message.Message) *SlowSql {
 	s := &SlowSql{
 		PayLoad:      msg.GetPayload(),
 		FromHostname: msg.GetHostname(),

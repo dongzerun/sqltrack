@@ -2,7 +2,6 @@ package tracker
 
 import (
 	"database/sql"
-	// "encoding/json"
 	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"

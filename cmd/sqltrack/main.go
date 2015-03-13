@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/tracker"
 	"github.com/golang/protobuf/proto"
@@ -21,19 +20,19 @@ func main() {
 
 	flag.Parse()
 
-	globals := input.LoadConfig(configPath)
+	globals := tracker.LoadConfig(configPath)
 
 	setRuntime(globals)
 
-	isfactory := input.Ins[globals.Base.Input]()
+	isfactory := tracker.Ins[globals.Base.Input]()
 
 	var (
-		is input.InputSource
+		is tracker.InputSource
 		ok bool
 	)
 
-	if is, ok = isfactory.(input.InputSource); !ok {
-		log.Fatalln("input may not initiatial!!!")
+	if is, ok = isfactory.(tracker.InputSource); !ok {
+		log.Fatalln("tracker may not initiatial!!!")
 	}
 
 	is.InitHelper(globals)
@@ -54,7 +53,7 @@ func main() {
 	is.Clean()
 }
 
-func process(is input.InputSource, t *tracker.Tracker) {
+func process(is tracker.InputSource, t *tracker.Tracker) {
 	for {
 		select {
 		case data := <-is.Consume():
@@ -68,7 +67,7 @@ func process(is input.InputSource, t *tracker.Tracker) {
 	}
 }
 
-func setRuntime(g *input.GlobalConfig) {
+func setRuntime(g *tracker.GlobalConfig) {
 	if g.Base.MaxCpu > 0 && g.Base.MaxCpu <= 32 {
 		runtime.GOMAXPROCS(g.Base.MaxCpu)
 	}
