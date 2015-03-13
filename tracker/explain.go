@@ -82,6 +82,7 @@ func (e *ExplainHelper) explain(s *SlowSql) []*SqlExplain {
 
 	if rows, err = e.DB.Query(esql); err != nil {
 		log.Println("query explain sql failed: ", err)
+		log.Println("origin wrong sql is: ", s.PayLoad)
 		return nil
 	}
 	// Get column names

@@ -114,7 +114,8 @@ func (is *InfluxStore) LoopProcess() {
 	for {
 		select {
 		case sql := <-is.sqls:
-			log.Println("reveive sql:", sql)
+			// log.Println("reveive sql:", sql)
+			is.send(sql)
 		case <-is.quit:
 			log.Println("quit influxstore loopprocess")
 			return
@@ -165,7 +166,9 @@ func (is *InfluxStore) fillSerial(s *tracker.SlowSql) {
 	is.serial.Points = append(is.serial.Points,
 		strconv.FormatUint(s.ID, 10),
 		s.FromHostname,
-		strconv.FormatInt(s.Timestamp, 10),
+		//cause Timestamp is nanno second so divided by 1e9
+		//1426262304000000000
+		strconv.FormatInt(s.Timestamp/1e9, 10),
 		s.Schema,
 		s.Table,
 		s.PayLoad,

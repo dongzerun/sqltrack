@@ -50,7 +50,7 @@ type Tracker struct {
 	received chan *message.Message
 	// 效率优化，可以多开goroutine处理sql并入channel toStore
 	toStore chan *SlowSql
-	op      *input.OutputSource
+	op      input.OutputSource
 
 	lruPool *cache.LRUCache
 
@@ -98,18 +98,32 @@ func (t *Tracker) Init(g *input.GlobalConfig) {
 		t.lruPool = cache.NewLRUCache(512)
 	}
 
+	var (
+		op input.OutputSource
+		ok bool
+	)
+	opfactory := input.Ous[g.Base.Output]()
+	if op, ok = opfactory.(input.OutputSource); !ok {
+		log.Fatalln("output source may not initaitial!!!")
+	}
+
+	op.InitHelper(g)
+	t.op = op
+
 	//开启多个goroutine同时消费数据
 	for i := 0; i < 1; i++ {
 		t.wg.Wrap(t.TransferLoop)
 	}
 	t.wg.Wrap(t.ToSaveStore)
 	t.wg.Wrap(t.StatsLoop)
+	t.wg.Wrap(t.op.LoopProcess)
 }
 
 func (t *Tracker) ToSaveStore() {
 	for {
 		select {
-		case <-t.toStore:
+		case s := <-t.toStore:
+			t.op.ReceiveMsg(s)
 		case <-t.quit:
 			return
 		}
