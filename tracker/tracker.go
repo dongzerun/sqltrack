@@ -121,7 +121,7 @@ func (t *Tracker) ToSaveStore() {
 }
 
 func (t *Tracker) TransferLoop() {
-	for i := 0; i < 30; i++ {
+	for {
 		select {
 		case msg := <-t.received:
 			// log.Println(msg.GetPayload(), msg.GetTimestamp(), msg.GetFields())
@@ -263,6 +263,7 @@ func (t *Tracker) StatsLoop() {
 		case <-ticker.C:
 			log.Println("inlru: ", t.stats.ProcessMessageInLru, "notinlru: ", t.stats.ProcessMessageNotInLru,
 				"direct: ", t.stats.ProcessMessageDirect, "cachsize:", t.lruPool.StatsJSON())
+			log.Println("channel length t.received:", len(t.received), " t.store:", len(t.toStore))
 			t.IcrStatsResetLru()
 		case <-t.quit:
 			goto exit

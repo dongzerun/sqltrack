@@ -63,15 +63,20 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 	is.pwd = g.InfluxDBConfig.Ipwd
 	is.dbname = g.InfluxDBConfig.Idbname
 
+	is.sqls = make(chan *SlowSql, 100)
+
+	log.Println("influx config: ", is.addr, is.user, is.pwd, is.dbname)
+
 	if ok := is.checkValid(); !ok {
 		log.Fatalln("influxStore check valid failed!!!", is)
 	}
 	is.influxdb = influxdbc.NewInfluxDB(is.addr, is.dbname, is.user, is.pwd)
 	// replace influxdb time with sql's executed timestamp
 	is.serial = influxdbc.NewSeries(
-		"id",            //id is a unique for same slow sql
-		"host",          // host is sql's source executed host
-		"time",          // time is sql's executed timestamp
+		"ms"
+		"id",   //id is a unique for same slow sql
+		"host", // host is sql's source executed host
+		// "time",          // time is sql's executed timestamp
 		"schema",        // schema is database name of current sql
 		"table",         // table is sql's table, only first one all sql (include join or subquery sql)
 		"sql",           // original sql
@@ -105,7 +110,7 @@ func (is *InfluxStore) LoopProcess() {
 	for {
 		select {
 		case sql := <-is.sqls:
-			// log.Println("reveive sql:", sql)
+			log.Println("reveive sql in LoopProcess")
 			is.send(sql)
 		case <-is.quit:
 			log.Println("quit influxstore loopprocess")
@@ -145,10 +150,16 @@ func (is *InfluxStore) LoopProcess() {
 // "useindex",      // if this sql use index or scan whole table
 // "explain")       // simple sql explain , it's a json array
 // err := database.WriteSeries([]influx.Series{*series})
+
+// [3027925413 10.1.8.203 0 shijiazhuang vehicle_post
+// SELECT tag,puid, title, thumb_img, city, license_date, road_haul, price, major_category FROM `shijiazhuang`.`vehicle_post`  force index (user_id_index) WHERE `city`=1100 AND (user_id = 356435537 AND post_at >= 1424973620 AND minor_category = 1212 AND deal_type = 0 AND listing_status = 5 AND puid <> 1418989540)   LIMIT 0, 300;
+//  616.00 1646.00 0.00 0.13 true
+//  [{"id":"1","select_type":"SIMPLE","table":"vehicle_post","explain_type":"ref","possible_keys":"user_id_index","key":"user_id_index","key_len":"4","ref":"const","rows":"615","extra":"Using where"}]]
 func (is *InfluxStore) send(s *SlowSql) {
 	is.fillSerial(s)
 	if err := is.influxdb.WriteSeries([]influxdbc.Series{*is.serial}); err != nil {
 		//just ignore error , continue and to be statsd
+		log.Println("write serial error: ", err)
 	}
 }
 
@@ -160,13 +171,14 @@ func (is *InfluxStore) fillSerial(s *SlowSql) {
 		s.FromHostname,
 		//cause Timestamp is nanno second so divided by 1e9
 		//1426262304000000000
-		strconv.FormatInt(s.Timestamp/1e9, 10),
+		// strconv.FormatInt(s., 10),
 		s.Schema,
 		s.Table,
 		s.PayLoad,
 		strconv.FormatFloat(s.RowsRead, 'f', 2, 32),
 		strconv.FormatFloat(s.BytesSent, 'f', 2, 32),
 		strconv.FormatFloat(s.RowsAffected, 'f', 2, 32),
+		strconv.FormatFloat(s.RowsExamined, 'f', 2, 32),
 		strconv.FormatFloat(s.QueryTime, 'f', 2, 32),
 		strconv.FormatBool(s.UseIndex),
 	}
@@ -176,7 +188,7 @@ func (is *InfluxStore) fillSerial(s *SlowSql) {
 	} else {
 		tmp = append(tmp, string(sb))
 	}
-
+	log.Println("fillserial: ", tmp)
 	is.serial.Points = append(is.serial.Points, tmp)
 }
 
