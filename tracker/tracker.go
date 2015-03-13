@@ -123,7 +123,7 @@ func (t *Tracker) TransferLoop() {
 			// log.Println(msg.GetPayload(), msg.GetTimestamp(), msg.GetFields())
 			// t.toStore <- t.transfer(msg)
 			s := t.transfer(msg)
-			log.Println(msg.GetFields(), msg.GetPayload())
+			// log.Println(msg.GetFields(), msg.GetPayload())
 			// log.Println(s)
 			if s == nil {
 				continue
@@ -138,7 +138,7 @@ func (t *Tracker) TransferLoop() {
 func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	//NewSlowSql只做预处理，不会去mysql 做 explain
 	sql := NewSlowSql(t.g, msg)
-	log.Println(sql.Schema, sql.Table, sql.PayLoad)
+	// log.Println(sql.Schema, sql.Table, sql.PayLoad)
 	//妆步判断，不用走mysql explain，直接打入store channel
 	key := strconv.FormatUint(uint64(sql.ID), 10)
 	if sql.UseIndex == false && sql.Table != "" {
@@ -163,10 +163,10 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 	if err := t.explainSql(sql); err != nil {
 		t.IcrStatsNotInLru(1)
 		sql.UseIndex = false
-		log.Println("explain error : ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+		// log.Println("explain error : ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 		return sql
 	}
-	log.Println("sql not in LruCache: ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+	// log.Println("sql not in LruCache: ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	t.lruPool.SetIfAbsent(key, sql.GenLruItem())
 	// log.Println("sql need explain: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	t.IcrStatsNotInLru(1)
@@ -183,7 +183,7 @@ func (t *Tracker) explainSql(sql *SlowSql) error {
 		return err
 	}
 	sql.Explains = ses
-	log.Println(sql.PayLoad, "ses is:", ses)
+	// log.Println(sql.PayLoad, "ses is:", ses)
 	// 只要找到一个执行计划使用全表扫，那么就认为没有走索引
 	// 只要explain 失败的sql，也认为全表扫没有走索引
 	// 对于误判来讲，不判才是最不应该的

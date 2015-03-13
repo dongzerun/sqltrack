@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	// "fmt"
 	"github.com/dongzerun/sqltrack/input"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/tracker"
@@ -15,7 +14,7 @@ import (
 )
 
 var (
-	configPath = flag.String("config", "/tmp/kafka.toml", "config must be file")
+	configPath = flag.String("config", "/tmp/sqltrack.toml", "config must be file")
 )
 
 func main() {
@@ -28,8 +27,10 @@ func main() {
 
 	isfactory := input.Ins[globals.Base.Input]()
 
-	var is input.InputSource
-	var ok bool
+	var (
+		is input.InputSource
+		ok bool
+	)
 
 	if is, ok = isfactory.(input.InputSource); !ok {
 		log.Fatalln("input may not initiatial!!!")
@@ -68,7 +69,7 @@ func process(is input.InputSource, t *tracker.Tracker) {
 }
 
 func setRuntime(g *input.GlobalConfig) {
-	if g.Base.MaxCpu > 0 {
+	if g.Base.MaxCpu > 0 && g.Base.MaxCpu <= 32 {
 		runtime.GOMAXPROCS(g.Base.MaxCpu)
 	}
 }

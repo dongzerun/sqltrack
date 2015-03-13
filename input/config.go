@@ -9,8 +9,9 @@ import (
 )
 
 type GlobalConfig struct {
-	Base        *BaseConfig
-	KafkaConfig *KafkaInputConfig
+	Base           *BaseConfig
+	KafkaConfig    *KafkaInputConfig
+	InfluxDBConfig *InfluxDBOutputConfig
 }
 
 type BaseConfig struct {
@@ -31,6 +32,17 @@ type BaseConfig struct {
 
 	//tracker
 	CacheSize int64 `toml:"cache_size"`
+}
+
+type InfluxDBOutputConfig struct {
+	Addrs   string `toml:"addrs"`
+	Iuser   string `toml:"influx_user"`
+	Ipwd    string `toml:"influx_pwd"`
+	Idbname string `toml:"influx_db"`
+}
+
+func NewInfluxDBOutputConfig() *InfluxDBOutputConfig {
+	return &InfluxDBOutputConfig{}
 }
 
 var cfgs map[string]toml.Primitive
@@ -73,6 +85,7 @@ func LoadConfig(configPath *string) *GlobalConfig {
 	// kafkacfg := &KafkaInputConfig{}
 	base := &BaseConfig{}
 	kafkacfg := NewKafkaInputConfig()
+	influxcfg := NewInfluxDBOutputConfig()
 
 	empty_ignore := map[string]interface{}{}
 
@@ -97,6 +110,15 @@ func LoadConfig(configPath *string) *GlobalConfig {
 		}
 		// log.Println(kafkacfg)
 		globals.KafkaConfig = kafkacfg
+	}
+	parsed_config_influxdb, ok := cfgs[globals.Base.Output]
+	if ok {
+		if err = toml.PrimitiveDecodeStrict(parsed_config_influxdb, influxcfg, empty_ignore); err != nil {
+			// err = fmt.Errorf("Can't unmarshal config: %s", err)
+			log.Fatalln("can't unmarshal config: ", err)
+		}
+		// log.Println(kafkacfg)
+		globals.InfluxDBConfig = influxcfg
 	}
 
 	return globals
