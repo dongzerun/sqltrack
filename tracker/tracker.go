@@ -148,9 +148,7 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 		return sql
 	}
 
-	if v, ok := t.lruPool.Get(key); !ok {
-		log.Println("sql not in LruCache: ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
-	} else {
+	if v, ok := t.lruPool.Get(key); ok {
 		if it, ok := v.(*LruItem); ok {
 			if sql.ID == it.ID {
 				sql.UseIndex = it.UseIndex
@@ -162,23 +160,40 @@ func (t *Tracker) transfer(msg *message.Message) *SlowSql {
 			}
 		}
 	}
-	t.explainSql(sql)
+	if err := t.explainSql(sql); err != nil {
+		t.IcrStatsNotInLru(1)
+		sql.UseIndex = false
+		log.Println("explain error : ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
+		return sql
+	}
+	log.Println("sql not in LruCache: ", sql.Schema, sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	t.lruPool.SetIfAbsent(key, sql.GenLruItem())
 	// log.Println("sql need explain: ", sql.Table, sql.ID, sql.UseIndex, sql.PayLoad)
 	t.IcrStatsNotInLru(1)
 	return sql
 }
 
-func (t *Tracker) explainSql(sql *SlowSql) {
-	// log.Println("explain sql: ", sql.ID, sql.PayLoad)
-	ses := t.eh.Explain(sql)
+func (t *Tracker) explainSql(sql *SlowSql) error {
+	var (
+		ses []*SqlExplain
+		err error
+	)
+	if ses, err = t.eh.Explain(sql); err != nil {
+		log.Println("explain err :", err)
+		return err
+	}
 	sql.Explains = ses
-	// log.Println(sql.PayLoad, "ses is:", ses)
+	log.Println(sql.PayLoad, "ses is:", ses)
+	// 只要找到一个执行计划使用全表扫，那么就认为没有走索引
+	// 只要explain 失败的sql，也认为全表扫没有走索引
+	// 对于误判来讲，不判才是最不应该的
 	for i, _ := range ses {
 		if ses[i].Key == "NULL" || ses[i].ExplainType == "ALL" {
 			sql.UseIndex = false
+			break
 		}
 	}
+	return nil
 }
 
 func (t *Tracker) Receive(msg *message.Message) {

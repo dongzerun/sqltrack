@@ -3,10 +3,15 @@ package tracker
 import (
 	"database/sql"
 	// "encoding/json"
+	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"strings"
+)
+
+var (
+	EXPLAINERR = errors.New("explain failed!!!")
 )
 
 type SqlExplain struct {
@@ -54,13 +59,13 @@ func NewExplainHelper(u string, p string, addr string) *ExplainHelper {
 
 //返回当前sql的执行执划，如果explain sql执行错误返回空即可
 //不强求一定正确
-func (e *ExplainHelper) Explain(s *SlowSql) []*SqlExplain {
+func (e *ExplainHelper) Explain(s *SlowSql) ([]*SqlExplain, error) {
 
 	se := e.explain(s)
 	if se != nil {
-		return se
+		return se, nil
 	}
-	return make([]*SqlExplain, 0)
+	return nil, EXPLAINERR
 }
 
 func (e *ExplainHelper) explain(s *SlowSql) []*SqlExplain {
@@ -69,6 +74,7 @@ func (e *ExplainHelper) explain(s *SlowSql) []*SqlExplain {
 	ses := make([]*SqlExplain, 0)
 	if s.Schema != "" {
 		if _, err = e.DB.Exec(fmt.Sprintf("use %s", s.Schema)); err != nil {
+			// just log and continue , bacause some sql execute without use DB
 			log.Println("warning set use db:", s.Schema, err)
 		}
 	}

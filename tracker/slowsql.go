@@ -85,13 +85,13 @@ func NewSlowSql(g *input.GlobalConfig, msg *message.Message) *SlowSql {
 		log.Println("generate unique id failed: ", err)
 		return nil
 	}
-	s.trySetSchemaAndTable()
 
 	s.setIfUseIndex()
 	if err := s.decodeFields(); err != nil {
 		log.Println("decode err just reject this slowsql: ", err)
 		return nil
 	}
+	s.trySetSchemaAndTable()
 
 	return s
 }
