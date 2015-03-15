@@ -73,7 +73,7 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 	is.influxdb = influxdbc.NewInfluxDB(is.addr, is.dbname, is.user, is.pwd)
 	// replace influxdb time with sql's executed timestamp
 	is.serial = influxdbc.NewSeries(
-		"ms"
+		"ms",
 		"id",   //id is a unique for same slow sql
 		"host", // host is sql's source executed host
 		// "time",          // time is sql's executed timestamp

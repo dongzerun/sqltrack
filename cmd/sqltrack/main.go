@@ -24,17 +24,15 @@ func main() {
 
 	setRuntime(globals)
 
-	isfactory := tracker.Ins[globals.Base.Input]()
+	var is tracker.InputSource
 
-	var (
-		is tracker.InputSource
-		ok bool
-	)
-
-	if is, ok = isfactory.(tracker.InputSource); !ok {
-		log.Fatalln("tracker may not initiatial!!!")
+	if isfactory, ok := tracker.Ins[globals.Base.Input]; !ok {
+		log.Fatalln("tracker.Ins must already registered one Input interface")
+	} else {
+		if is, ok = isfactory().(tracker.InputSource); !ok {
+			log.Fatalln("tracker may not initiatial!!!")
+		}
 	}
-
 	is.InitHelper(globals)
 
 	t := tracker.NewTracker()
@@ -51,6 +49,7 @@ func main() {
 		syscall.SIGQUIT)
 	<-sc
 	is.Clean()
+	t.Clean()
 }
 
 func process(is tracker.InputSource, t *tracker.Tracker) {

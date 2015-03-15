@@ -166,6 +166,7 @@ func (s *SlowSql) GenLruItem() *LruItem {
 		UseIndex: s.UseIndex,
 		Schema:   s.Schema,
 		Table:    s.Table,
+		Explains: s.Explains,
 	}
 }
 

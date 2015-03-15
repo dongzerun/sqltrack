@@ -88,13 +88,13 @@ func (t *Tracker) Init(g *GlobalConfig) {
 		t.lruPool = cache.NewLRUCache(512)
 	}
 
-	var (
-		op OutputSource
-		ok bool
-	)
-	opfactory := Ous[g.Base.Output]()
-	if op, ok = opfactory.(OutputSource); !ok {
-		log.Fatalln("output source may not initaitial!!!")
+	var op OutputSource
+	if opfactory, ok := Ous[g.Base.Output]; !ok {
+		log.Fatalln("tracker.Ous must already registered one Output interface")
+	} else {
+		if op, ok = opfactory().(OutputSource); !ok {
+			log.Fatalln("output source may not initaitial!!!")
+		}
 	}
 
 	op.InitHelper(g)
@@ -272,4 +272,11 @@ func (t *Tracker) StatsLoop() {
 exit:
 	ticker.Stop()
 	return
+}
+
+func (t *Tracker) Clean() {
+	t.op.Clean()
+	close(t.quit)
+	t.wg.Wait()
+	log.Println("tracker stop ....")
 }
