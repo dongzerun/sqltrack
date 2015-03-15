@@ -19,7 +19,7 @@ type InputSource interface {
 	StartPull()
 	Consume() <-chan InputMsg
 	Clean()
-	Stop() <-chan bool
+	Stop() bool
 }
 
 //output source db es influxdb
@@ -29,7 +29,7 @@ type OutputSource interface {
 	LoopProcess()
 	ReceiveMsg(interface{})
 	Clean()
-	Stop() <-chan bool
+	Stop() bool
 }
 
 // type factory func() interface{}

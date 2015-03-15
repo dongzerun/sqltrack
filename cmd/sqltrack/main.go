@@ -2,12 +2,12 @@ package main
 
 import (
 	"flag"
-	"github.com/dongzerun/sqltrack/tracker"
-
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
+
+	"github.com/dongzerun/sqltrack/tracker"
 )
 
 var (
@@ -20,12 +20,14 @@ func main() {
 	globals := tracker.LoadConfig(configPath)
 	setRuntime(globals)
 
+	//start a tracker and init
 	t := tracker.NewTracker()
 	t.Init(globals)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sc
+	// wait singal and exit
 	t.Clean()
 }
 

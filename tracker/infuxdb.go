@@ -5,7 +5,7 @@ import (
 	"log"
 	"strconv"
 
-	// "github.com/dongzerun/sqltrack/util"
+	"github.com/dongzerun/sqltrack/util"
 	"github.com/rossdylan/influxdbc"
 )
 
@@ -24,6 +24,7 @@ type InfluxStore struct {
 
 	sqls chan *SlowSql
 	quit chan bool
+	wg   util.WaitGroupWrapper
 }
 
 // database := influxdbc.NewInfluxDB("localhost:8083", "testdb", "username", "password")
@@ -60,7 +61,7 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 	is.user = g.InfluxDBConfig.Iuser
 	is.pwd = g.InfluxDBConfig.Ipwd
 	is.dbname = g.InfluxDBConfig.Idbname
-	is.quit = make(chan bool)
+	is.quit = make(chan bool, 1)
 	is.sqls = make(chan *SlowSql, 100)
 
 	log.Println("influx config: ", is.addr, is.user, is.pwd, is.dbname)
@@ -89,6 +90,8 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 		log.Fatalln("product name must be set and not empty")
 	}
 	is.serial.Name = g.Base.Product
+
+	is.wg.Wrap(is.LoopProcess)
 }
 
 func (is *InfluxStore) checkValid() bool {
@@ -202,10 +205,10 @@ func (is *InfluxStore) ReceiveMsg(msg interface{}) {
 
 func (is *InfluxStore) Clean() {
 	close(is.quit)
-	// is.wg.Wait()
+	is.wg.Wait()
 	log.Println("influxStoreHelper stop ....")
 }
 
-func (is *InfluxStore) Stop() <-chan bool {
-	return is.quit
+func (is *InfluxStore) Stop() bool {
+	return true
 }

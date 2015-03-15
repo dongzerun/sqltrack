@@ -1,0 +1,23 @@
+[global]
+basedir = "/tmp"
+product = "ms"
+input = "kafka"
+output = "influxdb"
+mysql_user = "myuser"
+mysql_pwd = "mypwd"
+mysql_addrs = "localhost:3306"
+cache_size = 1024
+maxcpu = 8
+
+[kafka]
+topic = "mysql.slow.ms"
+addrs = "localhost:9092"
+partition_nums = 3
+offset_method = "Manual"
+checkpoint_filename = "/tmp/checkpoint"
+
+[influxdb]
+influx_user = "root"
+influx_pwd = "root"
+influx_db = "ms"
+addrs = "localhost:8086"

@@ -43,7 +43,7 @@ type KafkaHelper struct {
 	// MsgKafka chan *sarama.ConsumerMessage
 	MsgKafka chan InputMsg
 	StopChan chan bool
-	Wg       util.WaitGroupWrapper
+	wg       util.WaitGroupWrapper
 
 	//配置
 	kconfig *KafkaInputConfig
@@ -142,12 +142,13 @@ func (kh *KafkaHelper) InitHelper(g *GlobalConfig) {
 	}
 
 	go kh.StartPull()
+	kh.wg.Wrap(kh.persistOffset)
 }
 
 func (kh *KafkaHelper) StartPull() {
 	log.Println("Start Pull data")
 	var i int32
-	kh.Wg.Add(int(kh.kconfig.PartitionNums))
+	kh.wg.Add(int(kh.kconfig.PartitionNums))
 	for i = 0; i < kh.kconfig.PartitionNums; i++ {
 		go func(i int32) {
 			for {
@@ -162,11 +163,9 @@ func (kh *KafkaHelper) StartPull() {
 				}
 			}
 		exit:
-			kh.Wg.Done()
+			kh.wg.Done()
 		}(i)
 	}
-
-	kh.Wg.Wrap(kh.persistOffset)
 }
 
 // input/kafka.go:155: cannot use <-kh.MsgKafka (type InputMsg) as
@@ -191,8 +190,8 @@ exit:
 	tk.Stop()
 }
 
-func (kh *KafkaHelper) Stop() <-chan bool {
-	return kh.StopChan
+func (kh *KafkaHelper) Stop() bool {
+	return true
 }
 
 func (kh *KafkaHelper) Clean() {
@@ -204,4 +203,5 @@ func (kh *KafkaHelper) Clean() {
 	kh.client.Close()
 	kh.checkpointFile.Sync()
 	kh.checkpointFile.Close()
+	kh.wg.Wait()
 }

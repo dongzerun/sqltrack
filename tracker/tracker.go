@@ -73,7 +73,7 @@ func NewTracker() *Tracker {
 		stats:    &TrackerStats{0, 0, 0, 0, 0},
 		received: make(chan *message.Message, 30),
 		toStore:  make(chan *SlowSql, 60),
-		quit:     make(chan bool),
+		quit:     make(chan bool, 1),
 		// lruPool:  cache.NewLRUCache(1024),
 	}
 }
@@ -121,7 +121,6 @@ func (t *Tracker) Init(g *GlobalConfig) {
 	}
 	t.wg.Wrap(t.ToSaveStore)
 	t.wg.Wrap(t.StatsLoop)
-	t.wg.Wrap(t.op.LoopProcess)
 	t.wg.Wrap(t.mainProcess)
 }
 
@@ -133,7 +132,8 @@ func (t *Tracker) mainProcess() {
 			msg := &message.Message{}
 			proto.Unmarshal(data.GetValue(), msg)
 			t.Receive(msg)
-		case <-t.is.Stop():
+		case <-t.quit:
+			log.Println("receive quit chan ,quit mainProcess")
 			return
 		}
 	}
@@ -145,6 +145,7 @@ func (t *Tracker) ToSaveStore() {
 		case s := <-t.toStore:
 			t.op.ReceiveMsg(s)
 		case <-t.quit:
+			log.Println("quit ToSaveStore ...")
 			return
 		}
 	}
@@ -164,6 +165,7 @@ func (t *Tracker) TransferLoop() {
 			}
 			t.toStore <- s
 		case <-t.quit:
+			log.Println("quit TransferLoop ...")
 			return
 		}
 	}
@@ -305,9 +307,11 @@ exit:
 }
 
 func (t *Tracker) Clean() {
-	t.op.Clean()
 	t.is.Clean()
+	t.op.Clean()
 	close(t.quit)
+	close(t.received)
+	log.Println("start tracker waitgroup...")
 	t.wg.Wait()
 	log.Println("tracker stop ....")
 }
