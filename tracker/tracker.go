@@ -4,6 +4,7 @@ import (
 	"github.com/dongzerun/sqltrack/cache"
 	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/util"
+	"github.com/golang/protobuf/proto"
 	"log"
 	"strconv"
 	"sync"
@@ -50,6 +51,7 @@ type Tracker struct {
 	// 效率优化，可以多开goroutine处理sql并入channel toStore
 	toStore chan *SlowSql
 	op      OutputSource
+	is      InputSource
 
 	lruPool *cache.LRUCache
 
@@ -71,6 +73,7 @@ func NewTracker() *Tracker {
 		stats:    &TrackerStats{0, 0, 0, 0, 0},
 		received: make(chan *message.Message, 30),
 		toStore:  make(chan *SlowSql, 60),
+		quit:     make(chan bool),
 		// lruPool:  cache.NewLRUCache(1024),
 	}
 }
@@ -100,6 +103,18 @@ func (t *Tracker) Init(g *GlobalConfig) {
 	op.InitHelper(g)
 	t.op = op
 
+	var is InputSource
+
+	if isfactory, ok := Ins[g.Base.Input]; !ok {
+		log.Fatalln("tracker.Ins must already registered one Input interface")
+	} else {
+		if is, ok = isfactory().(InputSource); !ok {
+			log.Fatalln("tracker may not initiatial!!!")
+		}
+	}
+	is.InitHelper(g)
+	t.is = is
+
 	//开启多个goroutine同时消费数据
 	for i := 0; i < 1; i++ {
 		t.wg.Wrap(t.TransferLoop)
@@ -107,6 +122,21 @@ func (t *Tracker) Init(g *GlobalConfig) {
 	t.wg.Wrap(t.ToSaveStore)
 	t.wg.Wrap(t.StatsLoop)
 	t.wg.Wrap(t.op.LoopProcess)
+	t.wg.Wrap(t.mainProcess)
+}
+
+func (t *Tracker) mainProcess() {
+	for {
+		select {
+		case data := <-t.is.Consume():
+			// fmt.Println(data.GetOffset())
+			msg := &message.Message{}
+			proto.Unmarshal(data.GetValue(), msg)
+			t.Receive(msg)
+		case <-t.is.Stop():
+			return
+		}
+	}
 }
 
 func (t *Tracker) ToSaveStore() {
@@ -276,6 +306,7 @@ exit:
 
 func (t *Tracker) Clean() {
 	t.op.Clean()
+	t.is.Clean()
 	close(t.quit)
 	t.wg.Wait()
 	log.Println("tracker stop ....")

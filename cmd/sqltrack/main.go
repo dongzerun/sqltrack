@@ -2,10 +2,8 @@ package main
 
 import (
 	"flag"
-	"github.com/dongzerun/sqltrack/message"
 	"github.com/dongzerun/sqltrack/tracker"
-	"github.com/golang/protobuf/proto"
-	"log"
+
 	"os"
 	"os/signal"
 	"runtime"
@@ -19,53 +17,19 @@ var (
 func main() {
 
 	flag.Parse()
-
 	globals := tracker.LoadConfig(configPath)
-
 	setRuntime(globals)
-
-	var is tracker.InputSource
-
-	if isfactory, ok := tracker.Ins[globals.Base.Input]; !ok {
-		log.Fatalln("tracker.Ins must already registered one Input interface")
-	} else {
-		if is, ok = isfactory().(tracker.InputSource); !ok {
-			log.Fatalln("tracker may not initiatial!!!")
-		}
-	}
-	is.InitHelper(globals)
 
 	t := tracker.NewTracker()
 	t.Init(globals)
-	go process(is, t)
 
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc,
-		os.Kill,
-		os.Interrupt,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
+	signal.Notify(sc, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sc
-	is.Clean()
 	t.Clean()
 }
 
-func process(is tracker.InputSource, t *tracker.Tracker) {
-	for {
-		select {
-		case data := <-is.Consume():
-			// fmt.Println(data.GetOffset())
-			msg := &message.Message{}
-			proto.Unmarshal(data.GetValue(), msg)
-			t.Receive(msg)
-		case <-is.Stop():
-			return
-		}
-	}
-}
-
+// to be continue ,add cpu and memory profiling
 func setRuntime(g *tracker.GlobalConfig) {
 	if g.Base.MaxCpu > 0 && g.Base.MaxCpu <= 32 {
 		runtime.GOMAXPROCS(g.Base.MaxCpu)

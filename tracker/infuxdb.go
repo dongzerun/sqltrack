@@ -5,7 +5,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/dongzerun/sqltrack/util"
+	// "github.com/dongzerun/sqltrack/util"
 	"github.com/rossdylan/influxdbc"
 )
 
@@ -24,8 +24,6 @@ type InfluxStore struct {
 
 	sqls chan *SlowSql
 	quit chan bool
-	// waitgroup
-	wg util.WaitGroupWrapper
 }
 
 // database := influxdbc.NewInfluxDB("localhost:8083", "testdb", "username", "password")
@@ -62,7 +60,7 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 	is.user = g.InfluxDBConfig.Iuser
 	is.pwd = g.InfluxDBConfig.Ipwd
 	is.dbname = g.InfluxDBConfig.Idbname
-
+	is.quit = make(chan bool)
 	is.sqls = make(chan *SlowSql, 100)
 
 	log.Println("influx config: ", is.addr, is.user, is.pwd, is.dbname)
@@ -203,9 +201,8 @@ func (is *InfluxStore) ReceiveMsg(msg interface{}) {
 }
 
 func (is *InfluxStore) Clean() {
-	// is.influxdb.Close()
 	close(is.quit)
-	is.wg.Wait()
+	// is.wg.Wait()
 	log.Println("influxStoreHelper stop ....")
 }
 
