@@ -121,6 +121,7 @@ func (t *Tracker) Init(g *GlobalConfig) {
 	}
 	t.wg.Wrap(t.ToSaveStore)
 	t.wg.Wrap(t.StatsLoop)
+	t.wg.Wrap(t.ClearLruPeriodical)
 	t.wg.Wrap(t.mainProcess)
 }
 
@@ -288,6 +289,21 @@ func (t *Tracker) IcrStatsResetLru() {
 	t.stats.ProcessMessageDirect = 0
 }
 
+func (t *Tracker) ClearLruPeriodical() {
+	ticker := time.NewTicker(time.Second * 1800)
+	for {
+		select {
+		case <-ticker.C:
+			t.lruPool.Clear()
+		case <-t.quit:
+			goto exit
+		}
+	}
+exit:
+	ticker.Stop()
+	return
+}
+
 func (t *Tracker) StatsLoop() {
 	ticker := time.NewTicker(time.Second * 60)
 	for {
@@ -295,7 +311,7 @@ func (t *Tracker) StatsLoop() {
 		case <-ticker.C:
 			log.Println("inlru: ", t.stats.ProcessMessageInLru, "notinlru: ", t.stats.ProcessMessageNotInLru,
 				"direct: ", t.stats.ProcessMessageDirect, "cachsize:", t.lruPool.StatsJSON())
-			log.Println("channel length t.received:", len(t.received), " t.store:", len(t.toStore))
+			log.Println("channel length t.received:", len(t.received), " t.tostore:", len(t.toStore))
 			t.IcrStatsResetLru()
 		case <-t.quit:
 			goto exit
@@ -307,6 +323,8 @@ exit:
 }
 
 func (t *Tracker) Clean() {
+	//close channel and quit goroutine by fifo
+	// close input and then close process goroutine ,last close output
 	t.is.Clean()
 	t.op.Clean()
 	close(t.quit)

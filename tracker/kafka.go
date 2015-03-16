@@ -148,8 +148,9 @@ func (kh *KafkaHelper) InitHelper(g *GlobalConfig) {
 func (kh *KafkaHelper) StartPull() {
 	log.Println("Start Pull data")
 	var i int32
-	kh.wg.Add(int(kh.kconfig.PartitionNums))
+
 	for i = 0; i < kh.kconfig.PartitionNums; i++ {
+		kh.wg.Add(1)
 		go func(i int32) {
 			for {
 				select {

@@ -111,7 +111,7 @@ func (is *InfluxStore) LoopProcess() {
 	for {
 		select {
 		case sql := <-is.sqls:
-			log.Println("reveive sql in LoopProcess")
+			// log.Println("reveive sql in LoopProcess")
 			is.send(sql)
 		case <-is.quit:
 			log.Println("quit influxstore loopprocess")
@@ -189,7 +189,7 @@ func (is *InfluxStore) fillSerial(s *SlowSql) {
 	} else {
 		tmp = append(tmp, string(sb))
 	}
-	log.Println("fillserial: ", tmp)
+	// log.Println("fillserial: ", tmp)
 	is.serial.Points = append(is.serial.Points, tmp)
 }
 
