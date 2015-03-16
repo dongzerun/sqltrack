@@ -76,16 +76,16 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 		"id",   //id is a unique for same slow sql
 		"host", // host is sql's source executed host
 		// "time",          // time is sql's executed timestamp
-		"schema",        // schema is database name of current sql
-		"table",         // table is sql's table, only first one all sql (include join or subquery sql)
-		"sql",           // original sql
-		"rowsread",      // rows read by this sql
-		"bytessent",     // bytes sent by this sql
-		"rowsaffected",  // rows affected by this sql
-		"rowsexaminded", // rows examined by this sql
-		"slowtime",      // slow time by this sql
-		"useindex",      // if this sql use index or scan whole table
-		"explain")       // simple sql explain , it's a json array
+		"schema",       // schema is database name of current sql
+		"table",        // table is sql's table, only first one all sql (include join or subquery sql)
+		"sql",          // original sql
+		"rowsread",     // rows read by this sql
+		"bytessent",    // bytes sent by this sql
+		"rowsaffected", // rows affected by this sql
+		"rowsexamined", // rows examined by this sql
+		"slowtime",     // slow time by this sql
+		"useindex",     // if this sql use index or scan whole table
+		"explains")     // simple sql explain , it's a json array
 	if g.Base.Product == "" {
 		log.Fatalln("product name must be set and not empty")
 	}
