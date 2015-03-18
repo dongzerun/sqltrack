@@ -60,6 +60,10 @@ type Tracker struct {
 	mpwd   string
 	maddrs string
 
+	//statsd
+	statsdMutex  sync.RWMutex
+	statsdServer *util.StatsdClient
+
 	// explainhelper 这个不用接口
 	// storehelper 这个需要接口满足插件是开发
 	eh *ExplainHelper
@@ -83,6 +87,10 @@ func (t *Tracker) Init(g *GlobalConfig) {
 	t.mpwd = g.Base.Mpwd
 	t.maddrs = g.Base.Maddrs
 	t.g = g
+	// t.statsd = g.Base.Statsd
+	// t.statsdPrefix = g.Base.StatsdPrefix
+	t.statsdServer = util.NewStatsdClient(g.Base.Statsd, g.Base.StatsdPrefix)
+
 	t.eh = NewExplainHelper(t.muser, t.mpwd, t.maddrs)
 	if g.Base.CacheSize > 0 && g.Base.CacheSize <= 1024 {
 		t.lruPool = cache.NewLRUCache(g.Base.CacheSize)
@@ -164,6 +172,7 @@ func (t *Tracker) TransferLoop() {
 			if s == nil {
 				continue
 			}
+			t.IncrSqlCntStatsd(s.ID)
 			t.toStore <- s
 		case <-t.quit:
 			log.Println("quit TransferLoop ...")
@@ -313,6 +322,13 @@ func (t *Tracker) StatsLoop() {
 				"direct: ", t.stats.ProcessMessageDirect, "cachsize:", t.lruPool.StatsJSON())
 			log.Println("channel length t.received:", len(t.received), " t.tostore:", len(t.toStore))
 			t.IcrStatsResetLru()
+
+			//reconnect statsd server per 60 min
+			t.statsdMutex.Lock()
+			if err := t.statsdServer.CreateSocket(); err != nil {
+				log.Println("statsd server create socket error:", err)
+			}
+			t.statsdMutex.Unlock()
 		case <-t.quit:
 			goto exit
 		}
@@ -332,4 +348,8 @@ func (t *Tracker) Clean() {
 	log.Println("start tracker waitgroup...")
 	t.wg.Wait()
 	log.Println("tracker stop ....")
+}
+
+func (t *Tracker) IncrSqlCntStatsd(id uint32) {
+	t.statsdServer.Gauge(strconv.FormatUint(uint64(id), 10), 1)
 }

@@ -8,6 +8,8 @@ mysql_pwd = "mypwd"
 mysql_addrs = "localhost:3306"
 cache_size = 1024
 maxcpu = 8
+statsd = "localhost:2155"
+statsd_prefix = "stats.db.mysql.ms.slow."
 
 [kafka]
 topic = "mysql.slow.ms"

@@ -32,6 +32,12 @@ type BaseConfig struct {
 
 	//tracker
 	CacheSize int64 `toml:"cache_size"`
+
+	//statsd
+	//statsd = "localhost:2155"
+	//statsd_prefix = "stats.db.mysql.ms.slow."
+	Statsd       string `toml:"statsd"`
+	StatsdPrefix string `toml:"statsd_prefix"`
 }
 
 type InfluxDBOutputConfig struct {
