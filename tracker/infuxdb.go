@@ -2,6 +2,7 @@ package tracker
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 
@@ -19,6 +20,7 @@ type InfluxStore struct {
 	user     string
 	pwd      string
 	dbname   string
+	product  string
 	influxdb *influxdbc.InfluxDB
 	serial   *influxdbc.Series
 
@@ -61,6 +63,8 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 	is.user = g.InfluxDBConfig.Iuser
 	is.pwd = g.InfluxDBConfig.Ipwd
 	is.dbname = g.InfluxDBConfig.Idbname
+	is.product = g.Base.Product
+
 	is.quit = make(chan bool, 1)
 	is.sqls = make(chan *SlowSql, 100)
 
@@ -72,7 +76,7 @@ func (is *InfluxStore) InitHelper(g *GlobalConfig) {
 	is.influxdb = influxdbc.NewInfluxDB(is.addr, is.dbname, is.user, is.pwd)
 	// replace influxdb time with sql's executed timestamp
 	is.serial = influxdbc.NewSeries(
-		"ms",
+		is.product,
 		"id",   //id is a unique for same slow sql
 		"host", // host is sql's source executed host
 		// "time",          // time is sql's executed timestamp
@@ -157,15 +161,39 @@ func (is *InfluxStore) LoopProcess() {
 //  616.00 1646.00 0.00 0.13 true
 //  [{"id":"1","select_type":"SIMPLE","table":"vehicle_post","explain_type":"ref","possible_keys":"user_id_index","key":"user_id_index","key_len":"4","ref":"const","rows":"615","extra":"Using where"}]]
 func (is *InfluxStore) send(s *SlowSql) {
-	is.fillSerial(s)
+	fillSerial(s, is.serial)
 	if err := is.influxdb.WriteSeries([]influxdbc.Series{*is.serial}); err != nil {
 		//just ignore error , continue and to be statsd
 		log.Println("write serial error: ", err)
 	}
+
+	if s.Table != "" {
+		tmpss := influxdbc.NewSeries(
+			fmt.Sprintf("%s.%s", is.product, s.Table),
+			"id",   //id is a unique for same slow sql
+			"host", // host is sql's source executed host
+			// "time",          // time is sql's executed timestamp
+			"schema",       // schema is database name of current sql
+			"table",        // table is sql's table, only first one all sql (include join or subquery sql)
+			"sql",          // original sql
+			"rowsread",     // rows read by this sql
+			"bytessent",    // bytes sent by this sql
+			"rowsaffected", // rows affected by this sql
+			"rowsexamined", // rows examined by this sql
+			"slowtime",     // slow time by this sql
+			"useindex",     // if this sql use index or scan whole table
+			"explains")     // simple sql explain , it's a json array
+		fillSerial(s, tmpss)
+		if err := is.influxdb.WriteSeries([]influxdbc.Series{*tmpss}); err != nil {
+			//just ignore error , continue and to be statsd
+			log.Println("write serial error: ", err)
+		}
+	}
+
 }
 
-func (is *InfluxStore) fillSerial(s *SlowSql) {
-	is.serial.Points = make([][]string, 0)
+func fillSerial(s *SlowSql, ss *influxdbc.Series) {
+	ss.Points = make([][]string, 0)
 
 	tmp := []string{
 		strconv.FormatUint(uint64(s.ID), 10),
@@ -190,7 +218,7 @@ func (is *InfluxStore) fillSerial(s *SlowSql) {
 		tmp = append(tmp, string(sb))
 	}
 	// log.Println("fillserial: ", tmp)
-	is.serial.Points = append(is.serial.Points, tmp)
+	ss.Points = append(ss.Points, tmp)
 }
 
 // receive slowsql sented to chan *SlowSql
