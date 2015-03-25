@@ -19,7 +19,8 @@ var (
 	rmSelectFrom, _    = regexp.Compile(`(?i:select.*from)`)
 	reSchemaTable1, _  = regexp.Compile(`(?i:( from )(.*)( force | inner |join|leftjoin|rightjoin))`)
 	reSchemaTable2, _  = regexp.Compile(`(?i:( from )(.*)( where ))`)
-	reSchemaTable3, _  = regexp.Compile(`(?i:( from )(.*)(;))`)
+	reSchemaTable3, _  = regexp.Compile(`(?i:( from )(.*)( limit ))`)
+	reSchemaTable4, _  = regexp.Compile(`(?i:( from )(.*)(;))`)
 )
 
 var (
@@ -127,6 +128,12 @@ func (s *SlowSql) trySetSchemaAndTable() {
 	}
 
 	m = reSchemaTable3.FindStringSubmatch(sql)
+	if len(m) == 4 {
+		s.setSchemaAndTable(m[2])
+		return
+	}
+
+	m = reSchemaTable4.FindStringSubmatch(sql)
 	if len(m) == 4 {
 		s.setSchemaAndTable(m[2])
 		return

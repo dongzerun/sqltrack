@@ -341,6 +341,7 @@ exit:
 func (t *Tracker) Clean() {
 	//close channel and quit goroutine by fifo
 	// close input and then close process goroutine ,last close output
+	log.Println("receive quit signal, start quit...")
 	t.is.Clean()
 	t.op.Clean()
 	close(t.quit)
